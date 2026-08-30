@@ -99,12 +99,13 @@
 
     window.addEventListener('message', function (event) {
       if (typeof event.data !== 'string') return;
+      var message;
       try {
-        var message = JSON.parse(event.data);
-        if (message.type === 'render') render(message.markers);
+        message = JSON.parse(event.data);
       } catch (e) {
-        // ignore malformed messages
+        return; // 우리 프로토콜이 아닌 메시지(malformed JSON) — 조용히 무시
       }
+      if (message.type === 'render') render(message.markers);
     });
 
     post({ type: 'map_ready' });
