@@ -23,8 +23,14 @@
     align-items: center; justify-content: center; }
   .zipmac-dong-name { font-size: 10px; font-weight: 700; color: #111827; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
   .zipmac-dong-rate { font-size: 10px; font-weight: 700; color: #111827; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
-  .zipmac-pin { width: 14px; height: 14px; border-radius: 50%; background: #3B82F6; border: 2px solid #fff;
-    cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  .zipmac-price-pin { position: relative; display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 9px 5px 5px; background: linear-gradient(135deg, #059669, #1d4ed8); border-radius: 16px;
+    border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.35); cursor: pointer; white-space: nowrap; }
+  .zipmac-price-pin::after { content: ''; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid #1d4ed8; }
+  .zipmac-price-pin img { width: 16px; height: 16px; display: block; border-radius: 4px; background: #fff; padding: 1.5px; }
+  .zipmac-price-pin .zipmac-price-label { font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
   .zipmac-agent-pin { width: 32px; height: 32px; border-radius: 50%; background: #F5B301; border: 2px solid #fff;
     cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 16px; }
 </style>
@@ -34,6 +40,8 @@
 <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=6f84f5dcb99197a873032783c2ac7b0e&autoload=false"></script>
 <script>
 (function () {
+  var ZIPMAC_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAEuElEQVRogdWYa0xTdxyGz1QYYlHIpsuYC1t2iX5Yxpxsy5Jd/LQsi8uIS0wwGgyOudCWO4JUBFZYAcclMFDkMhzDyADRYTDK0HVQkDKQS6EFQxlSSrkLg0ILvMs5sj+etMytO4LnTZ6E/t/f+bUPOaQtFHgeCjwPBZ6HAs9DgeehwPNQ4Hko8DwUeB5qNZ7kpr4V71UEI/hWNswL8/wS0E4NwuWHfaByPmI4cCMBC4uL/BAwLZjxTnkgqOyPWXwhT8MiFh8/AfpFfa/+Bckt5ZgxzyFUkYcnsvZaJbD2LCfPyamAWH4W6zI+Y3irOATrMzzJ470VUrifDyCPaST1hY+PQERtIdal7bPKi3lHMTb7Jwanx7HznIjVyZRlay8QV1+G9cn7reKc4Y2O0X4ye3dqFC/nilgz6c2VayeQ1liJDUlehFeyA7DnfCzrzKfyDOuPtmfCALcsP9LbJR1AfuvN1RcoaJXDTnYIG2QHGdy+E0M7MYRp0xw+LJSScxrRtQLWtd1jemxPF5LePuEQilSK1RMo7VTCId4HdnGHGVxTxOgcHiD9xOwM3s6NIT1N8PUi1o5WQx+eSRaSnt5X0tHw6AUuqZvgKPWFfewRhm2JYjTr/7CYG56ewutZUWSOJl5ewZpp0PXgKZmQ9IK4o7ja3fboBK51qyCI9YP9yS8Zno73h7Jfu+L8wOQEdqRJyDxNmqKKNfOrVgNnqYj0W78JwNTcLPcCcm0XXGIC8aTEj4H+uab3zkOv6x0fwUtJEnKdwwkhcpQ1rJmrGhXpadRDg9wKNPT1Ymt0KBwixAxbTgShqlv9by9H17ABbvEScr3jcX8UNStJbzSbSEfDqcDg5CSejY6EQ1ggg1NECH5WteO/pk0/ANdoCdkjCA9GXe/9289oNpNzGvWQgTuBspZWbAwKZRCEHENxUzNsjaTiCtm1MSgUsutVRODBc7WBQ4Hi32/D0T+cwT3+W5tffEG9EpsCIsiuFyRS9I2N3xcwmck5jWZwiEOBxhY4CiMZ3L9OtTqjG7+H95Oy4BomXRGBSEL2PB8eB9XA8n3OCCx1NJwK/KRsw6avTjK8EZNudSa0uJLMPIzngmW43bf8pve3wIMzGv0wuBNoaIfAN5ZhV1SmRU9/w3o1LIXM/BPbAxLRqNVZ7DCazKw5bgVuqSDwiWPYFXnaoq/rvkt6pyNxuNjYiWpVjwU3OrQYnZqx+hxGWmBpB41GP8KhQH0HnLwTGN6MyLHoQ3+sIv0HMedgS4wmM9lBoxngUKCkrhObD55i2B2WZ3H77BCfJn3qlQabBTYv7aDRDIxyKKBQY7NXCsPuEPbHYoVaRzoarWHCdgGv5T0aHZcCtV3Ysj+dwSOQ/T32WL6cdHuOX4CtMZrmyR4ajW6MO4HSmm44f57J4OFfxLp9dvoWkO6TqHKkXGyyiVOljWQPTVf/OIcCv92Bs+cZBg/h8m9ZqTGQc67p4lLgcq0WLp/mMrwrWv4vQm27npxzyTbPfIzcM3InMDxhxGs+F5jlqSUtrC7zUju8E6o543BiNS4rVv6CZJMAnVnTPAxj1t+E1jIUeB4KPA8FnocCz0OB56HA81DgeSjwPNRav4D/m78AeFbw6ez/TwIAAAAASUVORK5CYII=';
+
   function post(message) {
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify(message));
@@ -89,7 +97,19 @@
       apartmentOverlays = clearLayer(apartmentOverlays);
       (apartmentMarkers || []).forEach(function (a) {
         var el = document.createElement('div');
-        el.className = 'zipmac-pin';
+        el.className = 'zipmac-price-pin';
+
+        var img = document.createElement('img');
+        img.src = ZIPMAC_ICON;
+        el.appendChild(img);
+
+        if (a.priceLabel) {
+          var label = document.createElement('span');
+          label.className = 'zipmac-price-label';
+          label.textContent = a.priceLabel;
+          el.appendChild(label);
+        }
+
         el.addEventListener('click', function () {
           post({ type: 'apartment_marker_tap', apartmentId: a.id });
         });
@@ -97,6 +117,8 @@
         var overlay = new kakao.maps.CustomOverlay({
           position: new kakao.maps.LatLng(a.lat, a.lng),
           content: el,
+          xAnchor: 0.5,
+          yAnchor: 1,
           zIndex: 10,
         });
         overlay.setMap(map);
