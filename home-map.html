@@ -146,7 +146,16 @@
       applyZoomLayers();
     }
 
+    // 사용자가 지도를 움직이면(팬/줌) RN 쪽에 현재 중심/레벨을 알려줘서, 다음에 이 탭에
+    // 다시 들어올 때 마지막으로 보던 위치부터 시작할 수 있게 한다(사용자 요청, 2026-08-31).
+    function postViewChanged() {
+      var center = map.getCenter();
+      post({ type: 'view_changed', center: { lat: center.getLat(), lng: center.getLng() }, level: map.getLevel() });
+    }
+
     kakao.maps.event.addListener(map, 'zoom_changed', applyZoomLayers);
+    kakao.maps.event.addListener(map, 'zoom_changed', postViewChanged);
+    kakao.maps.event.addListener(map, 'dragend', postViewChanged);
 
     window.addEventListener('message', function (event) {
       if (typeof event.data !== 'string') return;
