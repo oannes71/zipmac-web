@@ -4,8 +4,8 @@
   Netlify에 정적 호스팅한다 — 자세한 배경은 그 파일 상단 주석 참고.
 
   new-highs 지도와 다른 점: 여기는 지도 중심/줌이 한 번 초기화된 뒤 사용자가 직접 움직이므로,
-  마커 데이터가 갱신될 때마다(관심 단지 필터 토글 등) 지도를 다시 센터링하면 안 된다 — 그래서
-  initialCenter/initialLevel은 "첫 render 메시지에서만" 적용하고, 이후 render는 오버레이만 갱신한다.
+  마커 데이터가 갱신될 때마다 지도를 다시 센터링하면 안 된다 — 그래서 initialCenter/initialLevel은
+  "첫 render 메시지에서만" 적용하고, 이후 render는 오버레이만 갱신한다.
 
   카카오맵 level은 숫자가 작을수록 확대(반대 방향)라 Leaflet zoom과 그대로 안 맞는다 —
   zoomThresholdLevel 기본값(5)은 시각적으로 튜닝이 더 필요할 수 있는 근사치다.
@@ -23,8 +23,8 @@
     align-items: center; justify-content: center; }
   .zipmac-dong-name { font-size: 10px; font-weight: 700; color: #111827; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
   .zipmac-dong-rate { font-size: 10px; font-weight: 700; color: #111827; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
-  .zipmac-pin { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .zipmac-pin { width: 14px; height: 14px; border-radius: 50%; background: #3B82F6; border: 2px solid #fff;
+    cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
   .zipmac-agent-pin { width: 32px; height: 32px; border-radius: 50%; background: #F5B301; border: 2px solid #fff;
     cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 16px; }
 </style>
@@ -90,8 +90,6 @@
       (apartmentMarkers || []).forEach(function (a) {
         var el = document.createElement('div');
         el.className = 'zipmac-pin';
-        el.style.background = a.isNewHighPrice ? '#EF4444' : '#3B82F6';
-        el.textContent = a.isNewHighPrice ? '👑' : '';
         el.addEventListener('click', function () {
           post({ type: 'apartment_marker_tap', apartmentId: a.id });
         });
