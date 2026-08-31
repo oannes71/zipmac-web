@@ -209,6 +209,11 @@
         } catch (e) {
           console.error('[zipmac-map] render() threw:', e && e.message, e && e.stack);
         }
+      } else if (message.type === 'set_center') {
+        // "현재 위치로 이동" 버튼 전용(사용자 요청, 2026-09-01) — render()의 initialCenter는
+        // 최초 1회만 적용되므로, 이미 초기화된 지도를 명시적으로 재센터링하려면 이 메시지가 필요.
+        if (message.center) map.setCenter(new kakao.maps.LatLng(message.center.lat, message.center.lng));
+        if (message.level) map.setLevel(message.level);
       }
     });
 
