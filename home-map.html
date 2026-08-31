@@ -29,8 +29,12 @@
   .zipmac-price-pin::after { content: ''; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%);
     width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent;
     border-top: 6px solid #1d4ed8; }
-  .zipmac-price-pin img { width: 16px; height: 16px; display: block; border-radius: 4px; background: #fff; padding: 1.5px; }
+  .zipmac-price-pin img { width: 16px; height: 16px; display: block; border-radius: 4px; background: #fff; padding: 1.5px; flex-shrink: 0; }
+  .zipmac-price-pin .zipmac-price-text { display: flex; flex-direction: column; line-height: 1.2; }
   .zipmac-price-pin .zipmac-price-label { font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+  .zipmac-price-pin .zipmac-change-label { font-size: 9.5px; font-weight: 700; }
+  .zipmac-price-pin .zipmac-change-up { color: #fca5a5; }
+  .zipmac-price-pin .zipmac-change-down { color: #93c5fd; }
   .zipmac-agent-pin { width: 32px; height: 32px; border-radius: 50%; background: #F5B301; border: 2px solid #fff;
     cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 16px; }
 </style>
@@ -104,10 +108,22 @@
         el.appendChild(img);
 
         if (a.priceLabel) {
+          var textWrap = document.createElement('div');
+          textWrap.className = 'zipmac-price-text';
+
           var label = document.createElement('span');
           label.className = 'zipmac-price-label';
           label.textContent = a.priceLabel;
-          el.appendChild(label);
+          textWrap.appendChild(label);
+
+          if (a.changeLabel) {
+            var change = document.createElement('span');
+            change.className = 'zipmac-change-label ' + (a.changeLabel.indexOf('-') === -1 ? 'zipmac-change-up' : 'zipmac-change-down');
+            change.textContent = a.changeLabel;
+            textWrap.appendChild(change);
+          }
+
+          el.appendChild(textWrap);
         }
 
         el.addEventListener('click', function () {
