@@ -37,6 +37,8 @@
   .zipmac-price-pin .zipmac-change-down { color: #93c5fd; }
   .zipmac-agent-pin { width: 32px; height: 32px; border-radius: 50%; background: #F5B301; border: 2px solid #fff;
     cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .zipmac-partner-pin { background: linear-gradient(135deg, #EF4444, #991B1B); }
+  .zipmac-partner-pin::after { border-top-color: #991B1B; }
 </style>
 </head>
 <body>
@@ -65,6 +67,7 @@
     var dongOverlays = [];
     var apartmentOverlays = [];
     var agentOverlays = [];
+    var partnerAgentOverlays = [];
 
     function clearLayer(overlays) {
       overlays.forEach(function (o) { o.setMap(null); });
@@ -162,11 +165,50 @@
       });
     }
 
+    // 실제 협업 중개사 마커 — 아파트 마커와 같은 알약형 디자인(집맥 로고 + 상호명), 색상만
+    // 붉은 그라데이션(사용자 요청, 2026-09-01). 클릭하면 전화 연결 바텀시트(mock agent 방식)
+    // 대신 네이버 지도로 그 상호명을 검색해 연결한다 — 실제 사무소 위치를 지도에서 바로
+    // 확인할 수 있게 해달라는 요청.
+    function renderPartnerAgentLayer(partnerAgentMarkers) {
+      partnerAgentOverlays = clearLayer(partnerAgentOverlays);
+      (partnerAgentMarkers || []).forEach(function (pa) {
+        var el = document.createElement('div');
+        el.className = 'zipmac-price-pin zipmac-partner-pin';
+
+        var img = document.createElement('img');
+        img.src = ZIPMAC_ICON;
+        el.appendChild(img);
+
+        var textWrap = document.createElement('div');
+        textWrap.className = 'zipmac-price-text';
+        var label = document.createElement('span');
+        label.className = 'zipmac-price-label';
+        label.textContent = pa.name;
+        textWrap.appendChild(label);
+        el.appendChild(textWrap);
+
+        el.addEventListener('click', function () {
+          post({ type: 'partner_agent_tap', name: pa.name });
+        });
+
+        var overlay = new kakao.maps.CustomOverlay({
+          position: new kakao.maps.LatLng(pa.lat, pa.lng),
+          content: el,
+          xAnchor: 0.5,
+          yAnchor: 1,
+          zIndex: 15,
+        });
+        overlay.setMap(map);
+        partnerAgentOverlays.push(overlay);
+      });
+    }
+
     function applyZoomLayers() {
       var zoomedIn = map.getLevel() <= zoomThresholdLevel;
       dongOverlays.forEach(function (o) { o.setMap(zoomedIn ? null : map); });
       apartmentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
       agentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
+      partnerAgentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
     }
 
     function render(payload) {
@@ -181,6 +223,7 @@
       renderDongLayer(payload.dongMarkers);
       renderApartmentLayer(payload.apartmentMarkers);
       renderAgentLayer(payload.agentMarkers);
+      renderPartnerAgentLayer(payload.partnerAgentMarkers);
       applyZoomLayers();
     }
 
