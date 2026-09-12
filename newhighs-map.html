@@ -1,15 +1,25 @@
 <!--
-  Netlify에 정적으로 호스팅되는 카카오맵 페이지 (https://zipmac-kakao-map.netlify.app/newhighs-map.html).
+  GitHub Pages에 정적으로 호스팅되는 카카오맵 페이지
+  (https://oannes71.github.io/zipmac-web/newhighs-map.html).
+
   카카오맵 JS SDK는 도메인 등록 기반 인증이라 WebView/iframe에 HTML을 인라인 주입하는 방식으로는
   못 쓴다 — Supabase Edge Function/Storage도 시도했지만 보안 정책상 GET 응답 Content-Type을
-  text/html에서 text/plain으로 강제 변경해서(피싱 방지, 공식 문서화된 제약) 실패했다. 이 파일을
-  수정한 뒤에는 아래 명령으로 재배포해야 실제 서비스에 반영된다:
+  text/html에서 text/plain으로 강제 변경해서(피싱 방지, 공식 문서화된 제약) 실패했다.
 
-    cd kakao-map-site
-    npx netlify-cli deploy --prod --dir=. --site=68d8c0f4-c646-46d3-9fa2-00f8e099e9d3
+  **Netlify에서 옮겨왔다(2026-09-12).** 이 파일은 읽히는 문서가 아니라 앱이 지도를 그릴 때마다
+  WebView로 불러가는 파일이라, 트래픽이 사용자 수에 그대로 비례한다. Netlify 무료 플랜은
+  크레딧제(트래픽 과금)라 결국 403 Account credit usage exceeded로 배포 자체가 막혔다.
+  앱의 상시 경로에 과금 호스트를 두면 사용자가 늘수록 반드시 다시 터진다 — GitHub Pages는
+  트래픽 과금이 없다.
 
-  (Netlify 계정: 사용자의 개인 계정(slug: oannes). 최초 1회 `npx netlify-cli link --id <site-id>`로
-  이 폴더를 사이트에 연결해둬야 한다 — .netlify/ 는 .gitignore에 추가할 것.)
+  **호스트를 옮길 때는 카카오 개발자 콘솔에 새 도메인을 먼저 등록해야 한다.** 안 하면 SDK 인증이
+  막혀 모든 사용자의 지도가 통째로 죽는다. 위치: 앱 > 플랫폼 키 > JavaScript SDK 도메인
+  (예전 '앱 설정 > 플랫폼 > Web > 사이트 도메인'에서 옮겨졌다). 구버전 앱이 아직 옛 주소를
+  쓰므로 옛 도메인은 지우지 말 것.
+
+  이 파일을 고친 뒤에는 아래로 재배포해야 실제 서비스에 반영된다(저장소 루트에서):
+
+    git subtree push --prefix=kakao-map-site pages main
 -->
 <!DOCTYPE html>
 <html>
