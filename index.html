@@ -84,15 +84,15 @@
   .lede{margin-top:20px; max-width:58ch; font-size:clamp(16px,1.9vw,18px); color:var(--ink-2)}
 
   .stats{display:grid; grid-template-columns:repeat(3,1fr); border-top:var(--rule); background:var(--surface)}
-  .stats div{padding:22px var(--pad); border-right:var(--rule)}
-  .stats div:last-child{border-right:0}
+  .stats > div{padding:22px var(--pad); border-right:var(--rule)}
+  .stats > div:last-child{border-right:0}
   .stats .n{font-family:var(--num); font-variant-numeric:tabular-nums;
             font-size:clamp(22px,3.4vw,32px); font-weight:600; line-height:1.2; letter-spacing:-0.02em}
   .stats .k{font-size:13px; color:var(--ink-2); margin-top:4px}
   @media (max-width:620px){
     .stats{grid-template-columns:1fr}
-    .stats div{border-right:0; border-bottom:var(--rule); padding:16px var(--pad)}
-    .stats div:last-child{border-bottom:0}
+    .stats > div{border-right:0; border-bottom:var(--rule); padding:16px var(--pad)}
+    .stats > div:last-child{border-bottom:0}
   }
 
   section{padding:clamp(52px,7vw,88px) 0}
