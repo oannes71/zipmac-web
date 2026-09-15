@@ -69,6 +69,19 @@
     var agentOverlays = [];
     var partnerAgentOverlays = [];
 
+    /**
+     * 협업 중개사 마커를 아파트보다 **늦게** 띄운다.
+     *
+     * 아파트 핀은 구 데이터를 받아야 그려지는데 중개사 마커는 늘 실려 있어 즉시 그려진다.
+     * 그래서 지도를 열면 중개사 핀이 먼저 뜨고 아파트가 뒤따르는데, 그게 광고를 앞세우는
+     * 것처럼 보인다(사용자 지적, 2026-09-16). 정보가 먼저고 소개가 나중이어야 한다.
+     *
+     * 늦추는 폭은 "따라 붙는다"로 읽힐 만큼만 준다. 더 길면 빠진 것처럼 보인다.
+     */
+    var PARTNER_AGENT_DELAY_MS = 500;
+    var partnerAgentsReady = false;
+    var partnerAgentTimer = null;
+
     function clearLayer(overlays) {
       overlays.forEach(function (o) { o.setMap(null); });
       return [];
@@ -208,7 +221,8 @@
       dongOverlays.forEach(function (o) { o.setMap(zoomedIn ? null : map); });
       apartmentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
       agentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
-      partnerAgentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
+      // partnerAgentsReady가 false인 동안은 배율과 무관하게 감춘다 — 위 주석 참고.
+      partnerAgentOverlays.forEach(function (o) { o.setMap(zoomedIn && partnerAgentsReady ? map : null); });
     }
 
     function render(payload) {
@@ -225,7 +239,15 @@
       renderApartmentLayer(payload.apartmentMarkers);
       renderAgentLayer(payload.agentMarkers);
       renderPartnerAgentLayer(payload.partnerAgentMarkers);
+
+      // 이번 렌더에서는 일단 감춘 채로 그리고, 조금 뒤에 띄운다.
+      partnerAgentsReady = false;
       applyZoomLayers();
+      if (partnerAgentTimer) clearTimeout(partnerAgentTimer);
+      partnerAgentTimer = setTimeout(function () {
+        partnerAgentsReady = true;
+        applyZoomLayers();
+      }, PARTNER_AGENT_DELAY_MS);
 
       // 첫 렌더 직후 화면 범위를 한 번 알린다(2026-09-13).
       //
