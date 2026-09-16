@@ -32,7 +32,9 @@
   .zipmac-price-pin img { width: 16px; height: 16px; display: block; border-radius: 4px; background: #fff; padding: 1.5px; flex-shrink: 0; }
   .zipmac-price-pin .zipmac-price-text { display: flex; flex-direction: column; line-height: 1.2; }
   .zipmac-price-pin .zipmac-price-label { font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+  .zipmac-price-pin .zipmac-price-top { display: flex; align-items: baseline; gap: 3px; }
   .zipmac-price-pin .zipmac-change-label { font-size: 9.5px; font-weight: 700; }
+  .zipmac-price-pin .zipmac-area-label { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.82); }
   .zipmac-price-pin .zipmac-change-up { color: #fca5a5; }
   .zipmac-price-pin .zipmac-change-down { color: #93c5fd; }
   .zipmac-agent-pin { width: 32px; height: 32px; border-radius: 50%; background: #F5B301; border: 2px solid #fff;
@@ -127,16 +129,32 @@
           var textWrap = document.createElement('div');
           textWrap.className = 'zipmac-price-text';
 
+          // 가격과 변동율은 한 줄에, 전용면적은 그 아래 작은 줄에 둔다. 셋을 한 줄로 이으면
+          // 핀이 "전용 84.93㎡ 21억 (+5.3%)"만큼 넓어져 지도가 핀으로 덮인다.
+          var top = document.createElement('div');
+          top.className = 'zipmac-price-top';
+
           var label = document.createElement('span');
           label.className = 'zipmac-price-label';
           label.textContent = a.priceLabel;
-          textWrap.appendChild(label);
+          top.appendChild(label);
 
           if (a.changeLabel) {
             var change = document.createElement('span');
             change.className = 'zipmac-change-label ' + (a.changeLabel.indexOf('-') === -1 ? 'zipmac-change-up' : 'zipmac-change-down');
             change.textContent = a.changeLabel;
-            textWrap.appendChild(change);
+            top.appendChild(change);
+          }
+
+          textWrap.appendChild(top);
+
+          // 예전 앱 버전은 areaLabel을 보내지 않고 priceLabel에 면적까지 넣어 보낸다 —
+          // 그때는 이 줄이 통째로 빠지고 위 줄만 남는다(이 페이지는 원격이라 앱보다 먼저 바뀐다).
+          if (a.areaLabel) {
+            var area = document.createElement('span');
+            area.className = 'zipmac-area-label';
+            area.textContent = a.areaLabel;
+            textWrap.appendChild(area);
           }
 
           el.appendChild(textWrap);
