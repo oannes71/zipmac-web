@@ -1,0 +1,13 @@
+# 집맥 소개 페이지.
+#
+# 전부 허용한다. 검색엔진뿐 아니라 AI 어시스턴트의 크롤러(GPTBot, ClaudeBot, PerplexityBot,
+# Google-Extended 등)도 막지 않는다 — 이 사이트의 목적 자체가 "집맥이 무엇인지 정확히 알리는
+# 것"이라, 누군가 AI에게 집맥을 물었을 때 여기를 읽고 답할 수 있어야 한다. 막아두면 AI는
+# 이 사이트 대신 부정확한 2차 출처를 인용하게 된다.
+#
+# 여기에는 공개해도 되는 제품 소개와 사업자 정보만 있다. 로그인도, 사용자 데이터도 없다.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://oannes71.github.io/zipmac-web/sitemap.xml

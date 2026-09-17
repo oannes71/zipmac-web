@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  지도 페이지(home-map.html, newhighs-map.html)는 넣지 않는다. 앱의 WebView가 데이터를
+  postMessage로 밀어넣어야 비로소 내용이 생기는 껍데기라, 크롤러가 열면 빈 지도만 보인다.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://oannes71.github.io/zipmac-web/</loc>
+    <lastmod>2026-09-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://oannes71.github.io/zipmac-web/privacy.html</loc>
+    <lastmod>2026-09-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>
