@@ -176,10 +176,13 @@
   /* **비율은 프레임이 아니라 이미지에 건다.** 프레임에 걸면 padding 18px이 더해진 바깥 상자가
      그 비율이 되고, 안쪽은 더 홀쭉해져 object-fit:cover가 좌우를 잘라낸다(실측 0.4926 vs
      0.5167 — 좌우 15%가 날아갔다). 이미지가 높이를 정하고 프레임이 그걸 감싸게 둔다. */
-  .phone > *{width:100%; aspect-ratio:1080/2090; height:auto; border-radius:22px;
+  /* 비율은 캡처마다 다르다 — 기기 캡처는 1080x2090, 공유 카드는 1124x2245다. 프레임에 --shot을
+     주면 그 비율로, 안 주면 기기 캡처 비율로 잡는다. 여기를 고정값으로 두면 공유 카드가
+     object-fit:cover에 위아래로 잘린다. */
+  .phone > *{width:100%; aspect-ratio:var(--shot,1080/2090); height:auto; border-radius:22px;
              display:block; object-fit:cover; background:var(--bg)}
   /* 캡처가 아직 없는 자리 — 같은 비율만큼 공간을 잡아 둔다. */
-  .phone[data-pending]::before{content:""; display:block; width:100%; aspect-ratio:1080/2090}
+  .phone[data-pending]::before{content:""; display:block; width:100%; aspect-ratio:var(--shot,1080/2090)}
   .phone[data-pending]::after{
     content:attr(data-pending); position:absolute; inset:0; border-radius:22px;
     display:flex; align-items:center; justify-content:center; text-align:center;
@@ -394,28 +397,64 @@
 
     <div class="screens">
       <figure>
-        <div class="phone"><img src="screens/district-rate.jpg" width="1080" height="2090" loading="lazy" alt="지역별 신고가 지도 — 시·군·구별 신고가율을 원 크기와 색으로 표시" /></div>
+        <div class="phone"><img src="screens/dong-newhighs.jpg" width="1080" height="2090" loading="lazy"
+             alt="지역별 신고가 지도 — 강남 일대를 동 단위로, 신고가율을 원의 크기와 색으로 표시" /></div>
         <figcaption>
           <span class="t">신고가 지도</span>
-          <span class="d">어느 구가 움직이는지 색으로 봅니다. 확대하면 동 단위로 바뀝니다.</span>
+          <span class="d">어느 지역이 움직이는지 원의 크기와 색으로 봅니다. 확대하면 동 단위까지 내려갑니다.</span>
         </figcaption>
       </figure>
       <figure>
-        <div class="phone"><img src="screens/transaction.jpg" width="1080" height="2090" loading="lazy" alt="거래 한 건 화면 — 금액, 전용면적, 층, 계약일과 그 거래를 빨간 점으로 표시한 가격 추이" /></div>
+        <div class="phone"><img src="screens/weekly-rate.jpg" width="1080" height="2090" loading="lazy"
+             alt="주간 변동율 지도 — 서울 25개 구의 전주 대비 매매가격 등락률을 지도 위에 표시" /></div>
         <figcaption>
-          <span class="t">거래 한 건</span>
-          <span class="d">그 거래가 이 평형의 흐름 어디에 있는지 빨간 점으로 짚어 줍니다. 그대로 공유됩니다.</span>
+          <span class="t">주간 변동율</span>
+          <span class="d">한국부동산원 주간 매매가격지수를 지도 위에 그대로 올립니다.</span>
         </figcaption>
       </figure>
       <figure>
-        <div class="phone"><img src="screens/map.jpg" width="1080" height="2090" loading="lazy" alt="단지 지도 — 지도 위에 단지별 최근 거래가와 6개월 평균 대비 등락률 표시" /></div>
+        <div class="phone"><img src="screens/district-rate.jpg" width="1080" height="2090" loading="lazy"
+             alt="서초구 상세 화면 — 52주 주간 변동율 선그래프와 12개월 신고가율 막대그래프" /></div>
+        <figcaption>
+          <span class="t">구 하나 들여다보기</span>
+          <span class="d">52주 변동율과 12개월 신고가율을 한 화면에 놓고 봅니다.</span>
+        </figcaption>
+      </figure>
+      <figure>
+        <div class="phone"><img src="screens/map.jpg" width="1080" height="2090" loading="lazy"
+             alt="단지 지도 — 지도 위에 단지별 최근 거래가와 6개월 평균 대비 등락률 표시" /></div>
         <figcaption>
           <span class="t">단지 지도</span>
           <span class="d">지도 위에 최근 거래가와 6개월 평균 대비 등락을 함께 답니다.</span>
         </figcaption>
       </figure>
       <figure>
-        <div class="phone"><img src="screens/wishlist.jpg" width="1080" height="2090" loading="lazy" alt="관심 단지 화면 — 나의 자산과 관심 단지의 최근 거래가 목록" /></div>
+        <div class="phone" style="--shot:1124/2245"><img src="screens/share-transaction.jpg" width="1124" height="2245" loading="lazy"
+             alt="거래 한 건 공유 카드 — 금액, 전용면적, 층, 계약일과 그 거래를 빨간 점으로 찍은 가격 추이" /></div>
+        <figcaption>
+          <span class="t">거래 한 건</span>
+          <span class="d">그 거래가 이 평형의 흐름 어디에 있는지 빨간 점으로 짚어 줍니다. 이 카드가 그대로 공유됩니다.</span>
+        </figcaption>
+      </figure>
+      <figure>
+        <div class="phone" style="--shot:1124/2245"><img src="screens/share-complex.jpg" width="1124" height="2245" loading="lazy"
+             alt="단지 정보 공유 카드 — 신고가 표시, 최고가 대비, 평형별 가격 추이 그래프" /></div>
+        <figcaption>
+          <span class="t">단지 정보</span>
+          <span class="d">평형별로 갈라 본 가격 추이와 최고가 대비 위치. 카드째로 넘길 수 있습니다.</span>
+        </figcaption>
+      </figure>
+      <figure>
+        <div class="phone"><img src="screens/dong-newhigh-list.jpg" width="1080" height="2090" loading="lazy"
+             alt="대치동 신고가 목록 — 달별로 묶인 신고가 거래와 단지명·전용면적·층·계약일" /></div>
+        <figcaption>
+          <span class="t">동별 신고가 목록</span>
+          <span class="d">그 동에서 최근 5년 최고가를 넘긴 거래를 달별로 모아 봅니다.</span>
+        </figcaption>
+      </figure>
+      <figure>
+        <div class="phone"><img src="screens/wishlist.jpg" width="1080" height="2090" loading="lazy"
+             alt="관심 단지 화면 — 나의 자산과 관심 단지의 최근 거래가 목록" /></div>
         <figcaption>
           <span class="t">관심 단지·나의 자산</span>
           <span class="d">담아 둔 단지에 새 실거래가 올라오면 알림이 옵니다.</span>

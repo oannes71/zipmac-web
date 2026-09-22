@@ -291,13 +291,25 @@
       }
     }
 
+    /**
+     * 아파트·중개사 마커를 통째로 감출 수 있다(사용자 요청, 2026-09-22).
+     *
+     * 특정 지역을 찾아 지도를 옮기는 동안에는 가격 말풍선이 지명과 길을 덮어 **길찾기를
+     * 방해한다**. 끄면 배경 지도만 남아 원하는 곳까지 편히 이동할 수 있다.
+     * 기본값은 켜짐 — 이 앱을 여는 이유가 그 숫자들이다.
+     *
+     * 동 히트서클은 이 스위치와 무관하다. 축소 상태에서만 뜨고 넓은 원이라 길을 가리지 않는다.
+     */
+    var markersVisible = true;
+
     function applyZoomLayers() {
       var zoomedIn = map.getLevel() <= zoomThresholdLevel;
+      var showPins = zoomedIn && markersVisible;
       dongOverlays.forEach(function (o) { o.setMap(zoomedIn ? null : map); });
-      apartmentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
-      agentOverlays.forEach(function (o) { o.setMap(zoomedIn ? map : null); });
+      apartmentOverlays.forEach(function (o) { o.setMap(showPins ? map : null); });
+      agentOverlays.forEach(function (o) { o.setMap(showPins ? map : null); });
       // partnerAgentsReady가 false인 동안은 배율과 무관하게 감춘다 — 위 주석 참고.
-      partnerAgentOverlays.forEach(function (o) { o.setMap(zoomedIn && partnerAgentsReady ? map : null); });
+      partnerAgentOverlays.forEach(function (o) { o.setMap(showPins && partnerAgentsReady ? map : null); });
     }
 
     function render(payload) {
@@ -381,6 +393,11 @@
         } catch (e) {
           console.error('[zipmac-map] setMyLocation() threw:', e && e.message);
         }
+      } else if (message.type === 'set_markers_visible') {
+        // 앱의 "아파트 정보" 스위치. 다시 그리지 않고 표시 여부만 바꾼다 — 마커는 그대로 두므로
+        // 켜는 순간 곧바로 나타난다.
+        markersVisible = message.visible !== false;
+        applyZoomLayers();
       } else if (message.type === 'set_center') {
         // "현재 위치로 이동" 버튼 전용(사용자 요청, 2026-09-01) — render()의 initialCenter는
         // 최초 1회만 적용되므로, 이미 초기화된 지도를 명시적으로 재센터링하려면 이 메시지가 필요.
