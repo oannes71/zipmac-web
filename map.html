@@ -136,6 +136,22 @@
   .pin .p em.dn{color:#BFDBFE}
   .pin .a{font-size:9.5px; color:rgba(255,255,255,.88)}
 
+  /* 협업 공인중개사 마커 — 앱 지도 탭과 같은 금색(#F5B301). 단지 핀 위에 떠야 눌린다. */
+  .agent{position:absolute; transform:translate(-50%,-50%); cursor:pointer;
+    width:32px; height:32px; border-radius:50%; background:#F5B301; border:2px solid #fff;
+    box-shadow:0 2px 6px rgba(0,0,0,.34); display:flex; align-items:center; justify-content:center}
+  .agent svg{width:17px; height:17px; fill:#3F2A00}
+  .agent::after{content:''; position:absolute; left:50%; bottom:-5px; transform:translateX(-50%);
+    width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent;
+    border-top:6px solid #F5B301}
+
+  .sheet .ag-addr{font-size:13px; color:var(--ink-2); margin:2px 0 10px; line-height:1.5}
+  .sheet .ag-link{display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+    background:#03C75A; color:#fff; font-size:13.5px; font-weight:600;
+    padding:9px 14px; border-radius:8px}
+  .sheet .ag-tag{display:inline-block; font-size:11px; font-weight:700; color:#8A6100;
+    background:#FFF3D6; padding:2px 8px; border-radius:99px; margin-bottom:6px}
+
   .cta{
     position:absolute; right:12px; bottom:12px; z-index:5;
     display:inline-flex; align-items:center; gap:8px; text-decoration:none;
@@ -171,9 +187,12 @@
   <button class="x" id="sheetClose" aria-label="닫기">&times;</button>
   <div class="sheet-hd"><b id="shName">—</b><span class="tot" id="shTot"></span></div>
   <div class="sum" id="shSum"></div>
-  <div id="shBars"></div>
-  <div class="lgd"><span><i class="bx"></i>신고가율</span><span><i class="ln"></i>거래건수</span></div>
-  <div class="note">월(月) 기준 · 중개거래 매매 중 최근 5년 내 최고가를 넘긴 거래의 비율 · 회색은 거래가 적어 비율을 적지 않은 달</div>
+  <div id="shChart">
+    <div id="shBars"></div>
+    <div class="lgd"><span><i class="bx"></i>신고가율</span><span><i class="ln"></i>거래건수</span></div>
+    <div class="note">월(月) 기준 · 중개거래 매매 중 최근 5년 내 최고가를 넘긴 거래의 비율 · 회색은 거래가 적어 비율을 적지 않은 달</div>
+  </div>
+  <div id="shAgent" hidden></div>
 </div>
 
 <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=6f84f5dcb99197a873032783c2ac7b0e&autoload=false"></script>
@@ -461,11 +480,47 @@
     }).filter(Boolean);
   }
 
+  var agentsPromise = null, agentOverlays = [];
+  function loadAgents() {
+    if (!agentsPromise) {
+      agentsPromise = rest('agents?is_active=is.true&lat=not.is.null&select=id,name,address,naver_map_url,lat,lng&order=sort_order')
+        .catch(function () { agentsPromise = null; return []; });
+    }
+    return agentsPromise;
+  }
+
+  var AGENT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 9v2h2v9h5v-6h4v6h5v-9h2V9zm0 3.3L17 9v9h-1v-6H8v6H7V9z"/></svg>';
+
+  /** 단지 핀과 같은 배율에서만 띄운다 — 앱도 그렇다. 넓게 볼 때 다섯 개가 흩어져 있으면
+   *  무슨 표시인지 알 수 없고, 지역 통계를 보는 화면에 섞이면 읽기를 방해한다. */
+  function drawAgents() {
+    agentOverlays.forEach(function (o) { o.setMap(null); });
+    agentOverlays = [];
+    if (levelName() !== 'apt') return;
+    loadAgents().then(function (list) {
+      if (levelName() !== 'apt') return;
+      (list || []).forEach(function (ag) {
+        var el = document.createElement('div');
+        el.className = 'agent';
+        el.innerHTML = AGENT_SVG;
+        el.title = ag.name + (ag.address ? ' · ' + ag.address : '');
+        el.addEventListener('click', function () { openAgent(ag); });
+        var ov = new kakao.maps.CustomOverlay({
+          position: new kakao.maps.LatLng(ag.lat, ag.lng), content: el,
+          yAnchor: 1.1, clickable: true, zIndex: 5000
+        });
+        ov.setMap(map);
+        agentOverlays.push(ov);
+      });
+    });
+  }
+
   var HOUSE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11h3v9h6v-6h2v6h6v-9h3z"/></svg>';
 
   function drawPins(pins) {
     overlays.forEach(function (o) { o.setMap(null); });
     overlays = [];
+    drawAgents();
 
     // 비싼 단지를 위에 — 겹칠 때 가려지는 쪽이 덜 중요한 것이 되게 한다.
     pins.slice().sort(function (a, b) { return a.price - b.price; }).forEach(function (p) {
@@ -579,6 +634,7 @@
   function draw(list) {
     overlays.forEach(function (o) { o.setMap(null); });
     overlays = [];
+    drawAgents();
     var color = colorScale(list);
     var sizeOf = sizeScale(list);
 
@@ -625,7 +681,32 @@
   var shBars = document.getElementById('shBars');
   var detailSeq = 0, detailCache = {};
 
+  var shChart = document.getElementById('shChart');
+  var shAgent = document.getElementById('shAgent');
+
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
+
+  /**
+   * 협업 공인중개사 마커를 누르면 뜨는 카드.
+   *
+   * **전화번호가 비어 있다.** 5곳 모두 phone이 빈 값이라 tel: 링크를 걸면 눌러도 아무 일도
+   * 안 난다 — 그래서 네이버 지도 링크만 건다(전부 채워져 있다). 나중에 번호가 들어오면
+   * 전화 버튼을 같이 붙이면 된다.
+   */
+  function openAgent(ag) {
+    shChart.hidden = true;
+    shAgent.hidden = false;
+    shName.textContent = ag.name || '공인중개사';
+    shTot.textContent = '';
+    shSum.textContent = '';
+    var link = ag.naver_map_url
+      ? '<a class="ag-link" href="' + esc(ag.naver_map_url) + '" target="_blank" rel="noopener noreferrer">네이버 지도에서 보기 &rarr;</a>'
+      : '';
+    shAgent.innerHTML = '<div class="ag-tag">협업 공인중개사</div>'
+      + '<div class="ag-addr">' + esc(ag.address || '') + '</div>' + link;
+    sheet.classList.add('on');
+    sheet.setAttribute('aria-hidden', 'false');
+  }
   function closeSheet() { sheet.classList.remove('on'); sheet.setAttribute('aria-hidden', 'true'); }
 
   /** 한 달에 이보다 적으면 비율을 쓰지 않는다. 3건 중 2건짜리 67%를 다른 달과 같은 높이로
@@ -634,6 +715,8 @@
 
   function openSheet(g) {
     var lv = levelName();
+    shChart.hidden = false;
+    shAgent.hidden = true;
     shName.textContent = g.label;
     shTot.textContent = '최근 12개월';
     shSum.textContent = '불러오는 중…';
