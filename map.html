@@ -53,10 +53,12 @@
     border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.28);
     display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
     line-height:1.15;}
-  .bub .nm{font-size:11px; font-weight:700; color:#111827; text-shadow:0 1px 2px rgba(255,255,255,.85)}
-  .bub .rt{font-size:15px; font-weight:800; letter-spacing:-.02em; color:#111827}
-  .bub .ct{font-size:10px; color:#374151}
-  .bub svg{margin-top:1px; display:block}
+  .bub .nm{font-size:10.5px; font-weight:700; color:#111827; text-shadow:0 1px 2px rgba(255,255,255,.85)}
+  .bub .rt{font-size:14px; font-weight:800; letter-spacing:-.02em; color:#111827}
+  .bub .ct{font-size:9.5px; color:#374151}
+  /* 원은 아래로 갈수록 좁아진다. 스파크라인이 그 곡선에 묻히지 않게 높이를 낮추고
+     위쪽 여백을 없앤다(2026-09-24 실제 화면에서 28개 전부 그려졌는데 안 보였다). */
+  .bub svg{margin:0; display:block; opacity:.9}
   /* **크기가 거래량이다.** 표본이 적은 곳을 회색으로 숨기지 않는다 — 아파트가 몇 채뿐인
      동은 1년 내내 회색이 되고, "1건 났는데 그게 신고가"라는 사실 자체가 정보이기 때문이다
      (사용자 결정, 2026-09-24). 대신 원을 작게 그려 시각적 무게를 줄인다.
@@ -109,7 +111,10 @@
       지름에 바로 비례시키면 거래량 4배가 넓이 16배로 보여 과장된다.
       실측(2026-09-24 강남 일대): 개포동 221건 / 내곡동 18건 / 신원동 15건.
       예전에는 셋이 같은 크기였고 색만 달라서, 18건짜리가 화면에서 가장 붉었다. */
-  var R_MIN = 22, R_MAX = 92;
+  /** **레벨마다 최소 지름이 다르다.** 시·군·구는 스물몇 개뿐이라 이름이 안 보이면 못 쓴다 —
+      실제 화면에서 종로구(38px)·중구(42px)·광진구(44px)가 이름을 잃었다(2026-09-24).
+      동은 반대로 작은 점이 살아 있어야 "1건 났는데 그게 신고가"가 시각적으로 작게 남는다. */
+  var R_MIN_DISTRICT = 50, R_MIN_DONG = 22, R_MAX = 92;
   /** 색이 갈리는 기준 신고가율(%). 앱의 지역별 신고가 지도와 같은 값이다. */
   var THRESHOLD = 10;
 
@@ -223,9 +228,10 @@
     var max = 1;
     list.forEach(function (g) { max = Math.max(max, g.total || 0); });
     var rt = Math.sqrt(max);
+    var rmin = levelName() === 'dong' ? R_MIN_DONG : R_MIN_DISTRICT;
     return function (total) {
       var t = Math.sqrt(Math.max(0, total || 0)) / rt;      // 0~1
-      return Math.round(R_MIN + (R_MAX - R_MIN) * t);
+      return Math.round(rmin + (R_MAX - rmin) * t);
     };
   }
 
@@ -280,7 +286,7 @@
       el.innerHTML = '<div class="nm">' + esc(g.label) + '</div>'
         + '<div class="rt">' + g.rate.toFixed(1) + '%</div>'
         + '<div class="ct">' + g.high + '/' + g.total + '건</div>'
-        + spark(g.months, Math.round(size * 0.62), 14);
+        + spark(g.months, Math.round(size * 0.58), 11);
       el.title = g.label + ' · 최근 ' + MONTHS + '개월 매매 ' + g.total + '건 중 신고가 ' + g.high + '건 ('
         + g.rate.toFixed(1) + '%)';
 
