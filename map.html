@@ -58,6 +58,8 @@
      지도 관례대로 큰 단위는 실선, 작은 단위는 점선으로 둔다. */
   .bub.lv-district{border:3px solid #fff}
   .bub.lv-dong{border:2px dashed #fff; outline:1px solid rgba(17,24,39,.10); outline-offset:-3px}
+  /* 진한 배경에서는 흰 글자로 뒤집는다 — 채도를 올린 대가로 검은 글자가 안 읽힌다. */
+  .bub.on-dark .nm, .bub.on-dark .rt, .bub.on-dark .ct{color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.30)}
   .bub .nm{font-size:10.5px; font-weight:700; color:#111827; text-shadow:0 1px 2px rgba(255,255,255,.85)}
   .bub .rt{font-size:14px; font-weight:800; letter-spacing:-.02em; color:#111827}
   .bub .ct{font-size:9.5px; color:#374151}
@@ -147,8 +149,8 @@
   <h1 id="lvTitle">시·군·구별 신고가율</h1>
   <div class="sub" id="lvSub">확대하면 동 단위로 바뀝니다 · 최근 6개월</div>
   <div class="legend" id="legend">
-    <span><i style="background:#93C5FD"></i>신고가율 낮음</span>
-    <span><i style="background:#FCA5A5"></i>높음</span>
+    <span><i style="background:#1D4ED8"></i>신고가율 낮음</span>
+    <span><i style="background:#DC2626"></i>높음</span>
     <span><i style="width:7px;height:7px;background:#CBD5E1"></i><i style="background:#CBD5E1"></i>원 크기 = 거래량</span>
     <span id="lvHint"><i style="border:2px solid #9CA3AF;background:transparent"></i>시·군·구</span>
   </div>
@@ -498,17 +500,25 @@
   /** 기준에서 얼마나 떨어졌는지를 **그 화면의 최대 거리**로 나눠 농도를 정한다.
       기준값 자체로 나누면 서울은 대부분 20%를 넘어 20%와 52%가 같은 빨강이 된다
       (앱 지도에서 2026-09-04에 겪은 것과 같은 함정). */
+  /** 배경 밝기(상대 휘도). 어두우면 흰 글자를 써야 읽힌다. */
+  function isDarkBg(rgb) {
+    return (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) < 150;
+  }
+
   function colorScale(list) {
     var spread = 1;
     // 표본이 큰 곳만으로 폭을 잡는다. 1건 중 1건짜리 100%가 폭을 정하면 나머지가 전부
     // 옅어져 색이 정보를 잃는다 — 그 원은 어차피 작게 그려지므로 척도에서 뺀다.
     list.forEach(function (g) { if (g.total >= 20 && g.rate !== null) spread = Math.max(spread, Math.abs(g.rate - THRESHOLD)); });
+    // **파스텔은 지도에 묻힌다**(사용자 지적, 2026-09-24). 카카오 지도의 도로·건물이
+    // 분홍·베이지 계열이라 red-300/blue-300 정도로는 원의 경계가 안 보였다. 양 끝을
+    // 진한 원색으로 올리고 **불투명하게** 칠한다 — 반투명이면 밑의 지도색이 비쳐 섞인다.
     return function (rate) {
       var t = Math.max(-1, Math.min(1, (rate - THRESHOLD) / spread));
-      var up = [252, 165, 165], down = [147, 197, 253], mid = [243, 244, 246];
+      var up = [220, 38, 38], down = [29, 78, 216], mid = [244, 246, 249];
       var to = t >= 0 ? up : down, a = Math.abs(t);
       var c = [0, 1, 2].map(function (i) { return Math.round(mid[i] + (to[i] - mid[i]) * a); });
-      return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.82)';
+      return { css: 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')', dark: isDarkBg(c) };
     };
   }
 
@@ -536,7 +546,7 @@
 
   /** 월별 비율 꺾은선. 표본이 모자란 달은 점을 찍지 않고 선을 끊는다 —
       3건 중 2건짜리 67%를 다른 달과 같은 높이로 이으면 추세가 거짓말이 된다. */
-  function spark(months, w, h) {
+  function spark(months, w, h, stroke) {
     var pts = months.map(function (m, i) { return { i: i, v: (m.total >= 8 && m.rate !== null) ? m.rate : null }; });
     var vals = pts.filter(function (p) { return p.v !== null; });
     if (vals.length < 2) return '';
@@ -552,7 +562,7 @@
       pen = true;
     });
     return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true">'
-      + '<path d="' + d.trim() + '" fill="none" stroke="#1D4ED8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      + '<path d="' + d.trim() + '" fill="none" stroke="' + (stroke || '#1D4ED8') + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
 
   function draw(list) {
@@ -567,17 +577,18 @@
     list.forEach(function (g) {
       if (g.lat == null || g.lng == null || g.rate === null) return;
       var size = sizeOf(g.total);
+      var col = color(g.rate);
       var el = document.createElement('div');
-      el.className = 'bub lv-' + levelName() + tierClass(size);
+      el.className = 'bub lv-' + levelName() + tierClass(size) + (col.dark ? ' on-dark' : '');
       el.style.width = size + 'px';
       el.style.height = size + 'px';
-      el.style.background = color(g.rate);
+      el.style.background = col.css;
       el.style.zIndex = String(1000 - Math.min(999, g.total || 0));
 
       el.innerHTML = '<div class="nm">' + esc(g.label) + '</div>'
         + '<div class="rt">' + g.rate.toFixed(1) + '%</div>'
         + '<div class="ct">' + g.high + '/' + g.total + '건</div>'
-        + spark(g.months, Math.round(size * 0.58), 11);
+        + spark(g.months, Math.round(size * 0.58), 11, col.dark ? 'rgba(255,255,255,.92)' : '#1D4ED8');
       el.title = g.label + ' · 최근 ' + MONTHS + '개월 매매 ' + g.total + '건 중 신고가 ' + g.high + '건 ('
         + g.rate.toFixed(1) + '%)';
 
