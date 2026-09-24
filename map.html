@@ -136,14 +136,21 @@
   .pin .p em.dn{color:#BFDBFE}
   .pin .a{font-size:9.5px; color:rgba(255,255,255,.88)}
 
-  /* 협업 공인중개사 마커 — 앱 지도 탭과 같은 금색(#F5B301). 단지 핀 위에 떠야 눌린다. */
-  .agent{position:absolute; transform:translate(-50%,-50%); cursor:pointer;
-    width:32px; height:32px; border-radius:50%; background:#F5B301; border:2px solid #fff;
-    box-shadow:0 2px 6px rgba(0,0,0,.34); display:flex; align-items:center; justify-content:center}
-  .agent svg{width:17px; height:17px; fill:#3F2A00}
-  .agent::after{content:''; position:absolute; left:50%; bottom:-5px; transform:translateX(-50%);
-    width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent;
-    border-top:6px solid #F5B301}
+  /* 협업 공인중개사 마커 — 앱 지도 탭과 같은 금색(#F5B301).
+     **이름을 같이 적는다**(사용자 요청, 2026-09-24). 아이콘만으로는 무슨 표시인지 알 수 없고,
+     이 마커는 협업 사무소를 알리는 자리라 이름이 곧 내용이다. 금색은 밝아서 글자는 진한 갈색. */
+  .agent{position:absolute; transform:translate(-50%,-50%); cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:5px; padding:4px 10px 4px 5px;
+    border-radius:16px; background:#F5B301; border:2px solid #fff;
+    box-shadow:0 2px 6px rgba(0,0,0,.34)}
+  .agent .ic{width:19px; height:19px; border-radius:50%; background:rgba(255,255,255,.92);
+    display:flex; align-items:center; justify-content:center; flex:none}
+  .agent .ic svg{width:12px; height:12px; fill:#8A6100}
+  .agent .nm{font-size:11px; font-weight:800; color:#3F2A00; letter-spacing:-.02em;
+    max-width:150px; overflow:hidden; text-overflow:ellipsis}
+  .agent::after{content:''; position:absolute; left:50%; bottom:-6px; transform:translateX(-50%);
+    width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent;
+    border-top:7px solid #F5B301}
 
   .sheet .ag-addr{font-size:13px; color:var(--ink-2); margin:2px 0 10px; line-height:1.5}
   .sheet .ag-link{display:inline-flex; align-items:center; gap:6px; text-decoration:none;
@@ -530,7 +537,7 @@
       (list || []).forEach(function (ag) {
         var el = document.createElement('div');
         el.className = 'agent';
-        el.innerHTML = AGENT_SVG;
+        el.innerHTML = '<span class="ic">' + AGENT_SVG + '</span><span class="nm">' + esc(ag.name || '공인중개사') + '</span>';
         el.title = ag.name + (ag.address ? ' · ' + ag.address : '');
         el.addEventListener('click', function () { openAgent(ag); });
         var ov = new kakao.maps.CustomOverlay({
