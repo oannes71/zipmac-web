@@ -104,6 +104,23 @@
   .lgd .ln{width:14px; height:0; border-top:2px solid #334155}
   .sheet .note{font-size:11.5px; color:var(--ink-3); margin-top:9px; line-height:1.5}
 
+  /* 단지 가격 핀 — 앱 지도 탭과 같은 모양(초록-파랑 그라데이션 + 아래 꼬리). */
+  .pin{position:relative; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+    padding:4px 9px 4px 6px; border-radius:15px; border:1.5px solid #fff; cursor:pointer;
+    background:linear-gradient(135deg,#059669,#1d4ed8); box-shadow:0 2px 5px rgba(0,0,0,.32)}
+  .pin::after{content:''; position:absolute; left:50%; bottom:-6px; transform:translateX(-50%);
+    width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent;
+    border-top:6px solid #1d4ed8}
+  .pin .ic{width:17px; height:17px; border-radius:5px; background:rgba(255,255,255,.92);
+    display:flex; align-items:center; justify-content:center; flex:none}
+  .pin .ic svg{width:11px; height:11px; fill:#1d4ed8}
+  .pin .tx{display:flex; flex-direction:column; line-height:1.2}
+  .pin .p{font-size:12px; font-weight:800; color:#fff; letter-spacing:-.02em}
+  .pin .p em{font-style:normal; font-size:10.5px; font-weight:700; margin-left:3px}
+  .pin .p em.up{color:#FECACA}
+  .pin .p em.dn{color:#BFDBFE}
+  .pin .a{font-size:9.5px; color:rgba(255,255,255,.88)}
+
   .cta{
     position:absolute; right:12px; bottom:12px; z-index:5;
     display:inline-flex; align-items:center; gap:8px; text-decoration:none;
@@ -225,7 +242,13 @@
     timer = setTimeout(load, 380);
   }
 
-  function levelName() { return map.getLevel() <= DONG_LEVEL ? 'dong' : 'district'; }
+  /** 이 레벨 이하로 확대하면 개별 단지 핀. 앱의 ZOOM_THRESHOLD_LEVEL(5)과 같은 값이다. */
+  var APT_LEVEL = 5;
+  function levelName() {
+    var l = map.getLevel();
+    if (l <= APT_LEVEL) return 'apt';
+    return l <= DONG_LEVEL ? 'dong' : 'district';
+  }
 
   function load() {
     var lv = levelName();
@@ -235,9 +258,12 @@
     var r = function (v) { return Math.round(v * 20) / 20; };
     var key = lv + ':' + r(sw.getLat()) + ',' + r(sw.getLng()) + ',' + r(ne.getLat()) + ',' + r(ne.getLng());
 
-    titleEl.textContent = lv === 'dong' ? '동별 신고가율' : '시·군·구별 신고가율';
-    subEl.textContent = (lv === 'dong' ? '축소하면 시·군·구 단위로 바뀝니다' : '확대하면 동 단위로 바뀝니다') + ' · 최근 ' + MONTHS + '개월';
+    titleEl.textContent = lv === 'apt' ? '단지별 최근 거래가' : lv === 'dong' ? '동별 신고가율' : '시·군·구별 신고가율';
+    subEl.textContent = lv === 'apt'
+      ? '(%)는 최근 6개월 평균 vs 직전 6개월 평균'
+      : (lv === 'dong' ? '축소하면 시·군·구 단위로 바뀝니다' : '확대하면 동 단위로 바뀝니다') + ' · 최근 ' + MONTHS + '개월';
 
+    if (lv === 'apt') { loadApartments(key, sw, ne); return; }
     if (cache[key]) { draw(cache[key]); return; }
 
     var mySeq = ++seq;
@@ -265,6 +291,153 @@
         setTimeout(function () { setStatus(false); }, 2200);
         if (window.console) console.error('[map] region_rate_bubbles 실패', e);
       });
+  }
+
+  // ── 단지 핀 ─────────────────────────────────────────────────────────────
+  // **앱과 같은 숫자가 나와야 한다.** 웹에서 따로 계산하면서 규칙이 어긋나면 같은 단지가
+  // 두 곳에서 다른 값을 말하게 된다. buildHomeMapData.ts / areaGroups.ts의 규칙을 그대로 옮겼다:
+  //
+  //   · 면적 묶음 — 간격 2.0㎡ 이하 & 묶음 폭 3.0㎡ 이하 (신고 편차로 84.99/84.95가 갈리는 것을 막는다)
+  //   · 대표 면적 — 묶음의 **중앙값**(평균은 한쪽으로 끌리고, 첫 값은 자란 방향에 좌우된다)
+  //   · 대표 묶음 — 거래가 가장 많은 묶음
+  //   · 등락률 — 최근 6개월 평균 vs 직전 6개월, **양쪽 모두 2건 이상일 때만**
+  //
+  // 마지막 규칙이 중요하다. 예전 앱은 한 건씩만 있어도 붙였고, 그래서 거래 한 건으로
+  // "-31.1%"가 찍힌 적이 있다 — 계산은 맞지만 한 건으로 단지 시세를 단정한 것이다.
+  var MIN_CHANGE_SAMPLE = 2;
+  var APT_LIMIT = 300;
+  var ID_CHUNK = 40;   // in.(...)에 한 번에 넣을 단지 수. 너무 많으면 쿼리가 타임아웃 난다.
+
+  function rest(path) {
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON }
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
+  }
+  function ymd(d) { return new Date(d).toISOString().slice(0, 10); }
+  function areaKey(v) { return Math.round(v * 10000) / 10000; }
+
+  /** 한 단지의 면적들을 묶고, 면적 -> 대표(중앙값) 면적 표를 만든다. areaGroups.ts와 같은 규칙. */
+  function buildAreaResolver(areas) {
+    var uniq = [];
+    var seen = {};
+    areas.forEach(function (a) { var k = areaKey(a); if (!seen[k]) { seen[k] = 1; uniq.push(k); } });
+    uniq.sort(function (a, b) { return a - b; });
+    var clusters = [], cur = null;
+    uniq.forEach(function (a) {
+      if (cur && a - cur[cur.length - 1] <= 2.0 && a - cur[0] <= 3.0) cur.push(a);
+      else { cur = [a]; clusters.push(cur); }
+    });
+    var map_ = {};
+    clusters.forEach(function (c) {
+      var label = c[Math.floor(c.length / 2)];
+      c.forEach(function (a) { map_[a] = label; });
+    });
+    return function (a) { var k = areaKey(a); return map_[k] !== undefined ? map_[k] : k; };
+  }
+
+  function won(v) {
+    // 앱의 formatKoreanPrice와 같은 읽기 — 억 단위, 소수 한 자리.
+    var eok = v / 100000000;
+    return (eok >= 100 ? Math.round(eok) : Math.round(eok * 100) / 100) + '억';
+  }
+
+  function loadApartments(key, sw, ne) {
+    if (cache[key]) { drawPins(cache[key]); return; }
+    var mySeq = ++seq;
+    setStatus(true, '단지 불러오는 중…');
+    var q = 'apartments?lat=gte.' + sw.getLat() + '&lat=lte.' + ne.getLat()
+          + '&lng=gte.' + sw.getLng() + '&lng=lte.' + ne.getLng()
+          + '&select=id,name,lat,lng&limit=' + APT_LIMIT;
+    rest(q).then(function (apts) {
+      if (mySeq !== seq) return;
+      if (!apts.length) { setStatus(false); cache[key] = []; drawPins([]); return; }
+      var from = ymd(Date.now() - 365 * 864e5);
+      var chunks = [];
+      for (var i = 0; i < apts.length; i += ID_CHUNK) chunks.push(apts.slice(i, i + ID_CHUNK));
+      return Promise.all(chunks.map(function (part) {
+        return rest('transactions?apartment_id=in.(' + part.map(function (a) { return a.id; }).join(',') + ')'
+          + '&deal_type=eq.' + encodeURIComponent('매매')
+          + '&trade_type=eq.' + encodeURIComponent('중개')
+          + '&cancel_date=is.null&contract_date=gte.' + from
+          + '&select=apartment_id,area_size_m2,price,contract_date&limit=5000');
+      })).then(function (parts) {
+        if (mySeq !== seq) return;
+        var tx = [];
+        parts.forEach(function (p) { tx = tx.concat(p); });
+        var pins = buildPins(apts, tx);
+        cache[key] = pins;
+        setStatus(false);
+        drawPins(pins);
+      });
+    }).catch(function (e) {
+      if (mySeq !== seq) return;
+      setStatus(true, '불러오지 못했어요');
+      setTimeout(function () { setStatus(false); }, 2200);
+      if (window.console) console.error('[map] 단지 조회 실패', e);
+    });
+  }
+
+  function buildPins(apts, tx) {
+    var byApt = {};
+    tx.forEach(function (t) { (byApt[t.apartment_id] = byApt[t.apartment_id] || []).push(t); });
+    var sixAgo = ymd(Date.now() - 182 * 864e5);
+    var twelveAgo = ymd(Date.now() - 365 * 864e5);
+
+    return apts.map(function (a) {
+      var list = byApt[a.id];
+      if (!list || !list.length) return null;                       // 1년간 거래가 없으면 핀을 안 찍는다
+      var resolve = buildAreaResolver(list.map(function (t) { return Number(t.area_size_m2); }));
+      var groups = {};
+      list.forEach(function (t) {
+        var g = resolve(Number(t.area_size_m2));
+        (groups[g] = groups[g] || []).push(t);
+      });
+      var repArea = null, rep = [];
+      Object.keys(groups).forEach(function (g) {
+        if (groups[g].length > rep.length) { rep = groups[g]; repArea = Number(g); }
+      });
+      if (!rep.length) return null;
+
+      var latest = rep.reduce(function (m, t) { return t.contract_date > m.contract_date ? t : m; }, rep[0]);
+      var recent = rep.filter(function (t) { return t.contract_date >= sixAgo; });
+      var prior = rep.filter(function (t) { return t.contract_date < sixAgo && t.contract_date >= twelveAgo; });
+      var change = null;
+      if (recent.length >= MIN_CHANGE_SAMPLE && prior.length >= MIN_CHANGE_SAMPLE) {
+        var avg = function (l) { return l.reduce(function (s, t) { return s + Number(t.price); }, 0) / l.length; };
+        var pa = avg(prior);
+        if (pa > 0) change = ((avg(recent) - pa) / pa) * 100;
+      }
+      return {
+        id: a.id, name: a.name, lat: a.lat, lng: a.lng,
+        price: Number(latest.price), area: repArea, date: latest.contract_date,
+        change: change, deals: rep.length
+      };
+    }).filter(Boolean);
+  }
+
+  var HOUSE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11h3v9h6v-6h2v6h6v-9h3z"/></svg>';
+
+  function drawPins(pins) {
+    overlays.forEach(function (o) { o.setMap(null); });
+    overlays = [];
+    // 비싼 단지를 위에 — 겹칠 때 가려지는 쪽이 덜 중요한 것이 되게 한다.
+    pins.slice().sort(function (a, b) { return a.price - b.price; }).forEach(function (p) {
+      var el = document.createElement('div');
+      el.className = 'pin';
+      var chg = p.change === null ? ''
+        : '<em class="' + (p.change >= 0 ? 'up' : 'dn') + '">(' + (p.change >= 0 ? '+' : '') + p.change.toFixed(1) + '%)</em>';
+      el.innerHTML = '<span class="ic">' + HOUSE_SVG + '</span><span class="tx">'
+        + '<span class="p">' + won(p.price) + chg + '</span>'
+        + '<span class="a">전용 ' + p.area.toFixed(2) + '㎡</span></span>';
+      el.title = p.name + ' · ' + won(p.price) + ' · 전용 ' + p.area.toFixed(2) + '㎡ · ' + p.date
+        + ' 계약 · 최근 1년 같은 면적 ' + p.deals + '건'
+        + (p.change === null ? ' (거래가 적어 변동율을 표시하지 않습니다)' : '');
+      var ov = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(p.lat, p.lng), content: el, yAnchor: 1.15, clickable: true
+      });
+      ov.setMap(map);
+      overlays.push(ov);
+    });
   }
 
   /** 월별 행을 지역별로 묶는다 — 합계는 비율에, 월별 값은 스파크라인에 쓴다. */
