@@ -491,14 +491,15 @@
 
   var AGENT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 9v2h2v9h5v-6h4v6h5v-9h2V9zm0 3.3L17 9v9h-1v-6H8v6H7V9z"/></svg>';
 
-  /** 단지 핀과 같은 배율에서만 띄운다 — 앱도 그렇다. 넓게 볼 때 다섯 개가 흩어져 있으면
-   *  무슨 표시인지 알 수 없고, 지역 통계를 보는 화면에 섞이면 읽기를 방해한다. */
+  /** **배율과 상관없이 항상 띄운다**(사용자 요청, 2026-09-24).
+   *
+   *  처음에는 앱처럼 단지 배율에서만 띄웠는데, 그러면 한 지역을 확대해 보는 동안 나머지
+   *  협업 사무소는 화면 밖이라 "다섯 곳 중 한 곳만 보인다". 중개사 노출은 이 서비스의
+   *  수익 지면이라 숨을 자리가 아니다. 다섯 개뿐이어서 넓게 봐도 지저분하지 않다. */
   function drawAgents() {
     agentOverlays.forEach(function (o) { o.setMap(null); });
     agentOverlays = [];
-    if (levelName() !== 'apt') return;
     loadAgents().then(function (list) {
-      if (levelName() !== 'apt') return;
       (list || []).forEach(function (ag) {
         var el = document.createElement('div');
         el.className = 'agent';
