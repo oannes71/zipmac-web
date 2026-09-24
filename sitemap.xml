@@ -1,18 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  지도 페이지(home-map.html, newhighs-map.html)는 넣지 않는다. 앱의 WebView가 데이터를
-  postMessage로 밀어넣어야 비로소 내용이 생기는 껍데기라, 크롤러가 열면 빈 지도만 보인다.
+  **주소는 zipmac.co.kr이다.** 2026-09-20에 도메인을 옮기고도 이 파일과 robots.txt가
+  oannes71.github.io를 가리킨 채로 있었다(2026-09-25 발견). 사이트맵이 다른 도메인을
+  가리키면 검색엔진이 그 항목을 무시하거나 교차 도메인으로 보고 버린다 — 등록해도 수집이
+  안 되는 상태였다.
+
+  앱이 WebView로 부르는 지도 껍데기(home-map.html, newhighs-map.html)는 넣지 않는다.
+  데이터를 앱이 postMessage로 밀어넣어야 내용이 생겨서 크롤러가 열면 빈 지도만 본다.
+  반면 map.html은 스스로 데이터를 불러오는 페이지라 넣는다.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://oannes71.github.io/zipmac-web/</loc>
-    <lastmod>2026-09-17</lastmod>
+    <loc>https://zipmac.co.kr/</loc>
+    <lastmod>2026-09-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://oannes71.github.io/zipmac-web/privacy.html</loc>
-    <lastmod>2026-09-17</lastmod>
+    <loc>https://zipmac.co.kr/map.html</loc>
+    <lastmod>2026-09-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://zipmac.co.kr/privacy.html</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://zipmac.co.kr/data-deletion.html</loc>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>

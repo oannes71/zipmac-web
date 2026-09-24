@@ -10,4 +10,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://oannes71.github.io/zipmac-web/sitemap.xml
+Sitemap: https://zipmac.co.kr/sitemap.xml
