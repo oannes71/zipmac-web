@@ -90,15 +90,18 @@
   .sheet .sum{font-size:12.5px; color:var(--ink-2); margin-bottom:10px}
   .sheet .x{position:absolute; right:10px; top:8px; border:0; background:transparent;
     font-size:20px; line-height:1; color:var(--ink-2); cursor:pointer; padding:4px 8px}
-  .bars{display:flex; align-items:flex-end; gap:3px; height:104px}
-  .bars .b{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%}
-  .bars .fill{width:100%; border-radius:3px 3px 0 0; min-height:2px; position:relative}
-  .bars .v{font-size:9px; font-weight:700; color:#fff; position:absolute; left:0; right:0; top:3px; text-align:center}
-  .bars .v.out{color:var(--ink-2); top:-13px}
-  .bars .m{font-size:9.5px; color:var(--ink-2); margin-top:3px}
-  /* 거래가 너무 적은 달 — 비율을 쓰지 않는다. 3건 중 2건짜리 67%를 다른 달과 같은 높이로
-     세우면 그래프가 거짓말이 된다. */
-  .bars .b.thin .fill{background:#E5E7EB !important}
+  .chart{width:100%; height:auto; display:block}
+  .chart .grid{stroke:#EEF0F4; stroke-width:1}
+  .chart .rateLbl{font-size:8.5px; font-weight:700; fill:#fff}
+  .chart .rateLbl.out{fill:#6B7280}
+  .chart .mon{font-size:8.5px; fill:#9CA3AF}
+  .chart .cntLine{fill:none; stroke:#334155; stroke-width:1.6; stroke-linejoin:round; stroke-linecap:round}
+  .chart .cntDot{fill:#334155}
+  .chart .cntLbl{font-size:8.5px; font-weight:700; fill:#334155}
+  .lgd{display:flex; gap:12px; align-items:center; font-size:11px; color:var(--ink-2); margin:6px 0 0}
+  .lgd i{display:inline-block; vertical-align:-1px; margin-right:4px}
+  .lgd .bx{width:9px; height:9px; border-radius:2px; background:#7C6BC4}
+  .lgd .ln{width:14px; height:0; border-top:2px solid #334155}
   .sheet .note{font-size:11.5px; color:var(--ink-3); margin-top:9px; line-height:1.5}
 
   .cta{
@@ -135,8 +138,9 @@
   <button class="x" id="sheetClose" aria-label="닫기">&times;</button>
   <div class="sheet-hd"><b id="shName">—</b><span class="tot" id="shTot"></span></div>
   <div class="sum" id="shSum"></div>
-  <div class="bars" id="shBars"></div>
-  <div class="note">월(月) 기준 · 중개거래 매매 중 최근 5년 내 최고가를 넘긴 거래의 비율 · 회색은 거래가 적은 달</div>
+  <div id="shBars"></div>
+  <div class="lgd"><span><i class="bx"></i>신고가율</span><span><i class="ln"></i>거래건수</span></div>
+  <div class="note">월(月) 기준 · 중개거래 매매 중 최근 5년 내 최고가를 넘긴 거래의 비율 · 회색은 거래가 적어 비율을 적지 않은 달</div>
 </div>
 
 <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=6f84f5dcb99197a873032783c2ac7b0e&autoload=false"></script>
@@ -428,6 +432,18 @@
       });
   }
 
+  /**
+   * 신고가율(막대) + 거래건수(선)를 한 그래프에 겹쳐 그린다(사용자 요청, 2026-09-24).
+   *
+   * **둘을 같이 봐야 읽을 수 있다.** 신고가율 40%가 거래 5건에서 나온 것과 150건에서 나온
+   * 것은 전혀 다른 시장인데, 비율만 보면 구분이 안 된다. 막대는 비율, 선은 건수다.
+   *
+   * 축이 둘이라 각각 그 그래프 안의 최댓값으로 정규화한다 — 절대 높이끼리는 비교하면 안 되고,
+   * 같은 달의 두 값이 어떻게 움직이는지를 보는 그래프다.
+   *
+   * **선은 모든 달을 잇는다.** 거래건수는 표본이 적어도 사실이라 숨길 이유가 없다.
+   * 비율만 8건 미만인 달에서 숨긴다.
+   */
   function renderBars(rows) {
     rows = (rows || []).slice().sort(function (a, b) { return a.year_month < b.year_month ? -1 : 1; });
     var high = 0, total = 0;
@@ -435,23 +451,59 @@
     shSum.textContent = total > 0
       ? '매매 ' + total.toLocaleString() + '건 중 신고가 ' + high.toLocaleString() + '건 · ' + (100 * high / total).toFixed(1) + '%'
       : '이 기간에 매매 거래가 없어요.';
+    if (!rows.length) { shBars.innerHTML = ''; return; }
 
-    var vals = rows.filter(function (r) { return r.total_count >= MIN_MONTH; })
-                   .map(function (r) { return 100 * r.new_high_count / r.total_count; });
-    var peak = Math.max(20, Math.max.apply(null, vals.length ? vals : [20]));
+    var W = 320, H = 132, PAD_T = 14, PAD_B = 16;
+    var plotH = H - PAD_T - PAD_B;
+    var n = rows.length;
+    var slot = W / n, bw = Math.min(20, slot * 0.62);
 
-    shBars.innerHTML = rows.map(function (r) {
-      var t = Number(r.total_count) || 0, h = Number(r.new_high_count) || 0;
-      var thin = t < MIN_MONTH;
-      var pct = t > 0 ? (100 * h / t) : 0;
-      var hgt = Math.max(2, Math.round((thin ? 6 : (pct / peak) * 100)));
-      var lab = thin ? (t > 0 ? t + '건' : '') : Math.round(pct) + '%';
-      var inside = !thin && hgt > 26;
-      return '<div class="b' + (thin ? ' thin' : '') + '" title="' + esc(r.year_month) + ' · 매매 ' + t + '건 중 신고가 ' + h + '건">'
-        + '<div class="fill" style="height:' + hgt + '%;background:' + barColor(pct) + '">'
-        + (lab ? '<span class="v' + (inside ? '' : ' out') + '">' + lab + '</span>' : '')
-        + '</div><div class="m">' + esc(r.year_month.slice(5)) + '</div></div>';
-    }).join('');
+    var rates = rows.map(function (r) {
+      var t = Number(r.total_count) || 0;
+      return t >= MIN_MONTH ? (100 * (Number(r.new_high_count) || 0) / t) : null;
+    });
+    var counts = rows.map(function (r) { return Number(r.total_count) || 0; });
+    var peakRate = Math.max(20, Math.max.apply(null, rates.filter(function (v) { return v !== null; }).concat([20])));
+    var peakCount = Math.max(1, Math.max.apply(null, counts));
+
+    var bars = '', line = '', dots = '', months = '';
+    rows.forEach(function (r, i) {
+      var cx = slot * i + slot / 2;
+      var t = counts[i], rate = rates[i], thin = rate === null;
+      // 막대 — 비율
+      var h = thin ? 5 : Math.max(2, (rate / peakRate) * plotH);
+      var y = PAD_T + plotH - h;
+      bars += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '"'
+           +  ' rx="2.5" fill="' + (thin ? '#E5E7EB' : barColor(rate)) + '">'
+           +  '<title>' + esc(r.year_month) + ' · 매매 ' + t + '건 중 신고가 ' + (Number(r.new_high_count) || 0) + '건</title></rect>';
+      if (!thin) {
+        var inside = h > 22;
+        bars += '<text class="rateLbl' + (inside ? '' : ' out') + '" x="' + cx.toFixed(1) + '" y="' + (inside ? y + 11 : y - 3).toFixed(1) + '" text-anchor="middle">'
+             +  Math.round(rate) + '%</text>';
+      } else if (t > 0) {
+        bars += '<text class="rateLbl out" x="' + cx.toFixed(1) + '" y="' + (y - 3).toFixed(1) + '" text-anchor="middle">' + t + '건</text>';
+      }
+      // 선 — 거래건수
+      var ly = PAD_T + plotH - (t / peakCount) * plotH * 0.88;
+      line += (i === 0 ? 'M' : 'L') + cx.toFixed(1) + ' ' + ly.toFixed(1) + ' ';
+      dots += '<circle class="cntDot" cx="' + cx.toFixed(1) + '" cy="' + ly.toFixed(1) + '" r="2"><title>'
+           +  esc(r.year_month) + ' · 매매 ' + t + '건</title></circle>';
+      months += '<text class="mon" x="' + cx.toFixed(1) + '" y="' + (H - 4) + '" text-anchor="middle">' + esc(r.year_month.slice(5)) + '</text>';
+    });
+
+    // 거래건수 최댓값만 숫자로 — 선 전체에 숫자를 달면 막대 위 %와 뒤엉킨다.
+    var pi = counts.indexOf(peakCount);
+    var pcx = slot * pi + slot / 2;
+    var pcy = PAD_T + plotH - (peakCount / peakCount) * plotH * 0.88;
+    var peakLbl = '<text class="cntLbl" x="' + Math.min(W - 14, Math.max(14, pcx)).toFixed(1) + '" y="' + (pcy - 5).toFixed(1)
+      + '" text-anchor="middle">' + peakCount + '건</text>';
+
+    shBars.innerHTML = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="월별 신고가율과 거래건수">'
+      + '<line class="grid" x1="0" y1="' + (PAD_T + plotH) + '" x2="' + W + '" y2="' + (PAD_T + plotH) + '"/>'
+      + bars
+      + '<path class="cntLine" d="' + line.trim() + '"/>' + dots + peakLbl
+      + months
+      + '</svg>';
   }
 
   /** 앱의 신고가율 막대와 같은 보라-파랑 계열. 높을수록 진해진다. */
