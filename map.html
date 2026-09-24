@@ -58,6 +58,9 @@
      지도 관례대로 큰 단위는 실선, 작은 단위는 점선으로 둔다. */
   .bub.lv-district{border:3px solid #fff}
   .bub.lv-dong{border:2px dashed #fff; outline:1px solid rgba(17,24,39,.10); outline-offset:-3px}
+  /* 지름이 작으면 점선 조각이 가시처럼 삐죽거려 별 모양으로 보인다(실제 화면에서 확인).
+     작은 원은 실선으로 — 어차피 그 크기에서는 테두리로 단위를 구분할 일이 없다. */
+  .bub.lv-dong.s2, .bub.lv-dong.s1{border-style:solid}
   /* 진한 배경에서는 흰 글자로 뒤집는다 — 채도를 올린 대가로 검은 글자가 안 읽힌다. */
   .bub.on-dark .nm, .bub.on-dark .rt, .bub.on-dark .ct{color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.30)}
   .bub .nm{font-size:10.5px; font-weight:700; color:#111827; text-shadow:0 1px 2px rgba(255,255,255,.85)}
@@ -516,7 +519,10 @@
     return function (rate) {
       var t = Math.max(-1, Math.min(1, (rate - THRESHOLD) / spread));
       var up = [220, 38, 38], down = [29, 78, 216], mid = [244, 246, 249];
-      var to = t >= 0 ? up : down, a = Math.abs(t);
+      // **선형으로 섞으면 낮은 쪽이 흰색으로 죽는다.** 화면 최대 편차로 정규화하다 보니
+      // 자양동 51.7%가 폭을 잡으면 잠실동 4.7%는 0.13밖에 안 돼 거의 무색이 된다.
+      // 제곱근에 가까운 감마를 씌워 작은 편차에도 색이 붙게 한다 — 순서는 그대로다.
+      var to = t >= 0 ? up : down, a = Math.pow(Math.abs(t), 0.6);
       var c = [0, 1, 2].map(function (i) { return Math.round(mid[i] + (to[i] - mid[i]) * a); });
       return { css: 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')', dark: isDarkBg(c) };
     };
