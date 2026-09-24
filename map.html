@@ -153,9 +153,13 @@
     border-top:7px solid #F5B301}
 
   .sheet .ag-addr{font-size:13px; color:var(--ink-2); margin:2px 0 10px; line-height:1.5}
+  .sheet .ag-row{display:flex; gap:8px; flex-wrap:wrap}
   .sheet .ag-link{display:inline-flex; align-items:center; gap:6px; text-decoration:none;
     background:#03C75A; color:#fff; font-size:13.5px; font-weight:600;
     padding:9px 14px; border-radius:8px}
+  .sheet .ag-tel{display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+    background:#1F2937; color:#fff; font-size:13.5px; font-weight:600;
+    padding:9px 14px; border-radius:8px; font-variant-numeric:tabular-nums}
   .sheet .ag-tag{display:inline-block; font-size:11px; font-weight:700; color:#8A6100;
     background:#FFF3D6; padding:2px 8px; border-radius:99px; margin-bottom:6px}
 
@@ -515,7 +519,7 @@
   var agentsPromise = null, agentOverlays = [];
   function loadAgents() {
     if (!agentsPromise) {
-      agentsPromise = rest('agents?is_active=is.true&lat=not.is.null&select=id,name,address,naver_map_url,lat,lng&order=sort_order')
+      agentsPromise = rest('agents?is_active=is.true&lat=not.is.null&select=id,name,address,phone,naver_map_url,lat,lng&order=sort_order')
         .catch(function () { agentsPromise = null; return []; });
     }
     return agentsPromise;
@@ -734,11 +738,19 @@
     shName.textContent = ag.name || '공인중개사';
     shTot.textContent = '';
     shSum.textContent = '';
-    var link = ag.naver_map_url
-      ? '<a class="ag-link" href="' + esc(ag.naver_map_url) + '" target="_blank" rel="noopener noreferrer">네이버 지도에서 보기 &rarr;</a>'
-      : '';
+    var buttons = '';
+    // 전화는 눌러서 바로 걸리는 게 목적이라 숫자만 남겨 tel:에 넣는다 — 하이픈이 있으면
+    // 일부 기기에서 다이얼러가 못 읽는다. 화면에는 받은 그대로 보여준다.
+    if (ag.phone) {
+      buttons += '<a class="ag-tel" href="tel:' + esc(String(ag.phone).replace(/[^0-9+]/g, '')) + '">'
+        + '전화 ' + esc(ag.phone) + '</a>';
+    }
+    if (ag.naver_map_url) {
+      buttons += '<a class="ag-link" href="' + esc(ag.naver_map_url) + '" target="_blank" rel="noopener noreferrer">네이버 지도 &rarr;</a>';
+    }
     shAgent.innerHTML = '<div class="ag-tag">협업 공인중개사</div>'
-      + '<div class="ag-addr">' + esc(ag.address || '') + '</div>' + link;
+      + '<div class="ag-addr">' + esc(ag.address || '') + '</div>'
+      + '<div class="ag-row">' + buttons + '</div>';
     sheet.classList.add('on');
     sheet.setAttribute('aria-hidden', 'false');
   }
