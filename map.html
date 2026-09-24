@@ -420,11 +420,7 @@
       var chunks = [];
       for (var i = 0; i < apts.length; i += ID_CHUNK) chunks.push(apts.slice(i, i + ID_CHUNK));
       return Promise.all(chunks.map(function (part) {
-        return rest('transactions?apartment_id=in.(' + part.map(function (a) { return a.id; }).join(',') + ')'
-          + '&deal_type=eq.' + encodeURIComponent('매매')
-          + '&trade_type=eq.' + encodeURIComponent('중개')
-          + '&cancel_date=is.null&contract_date=gte.' + from
-          + '&select=apartment_id,area_size_m2,price,contract_date&limit=5000');
+        return fetchAllTx(part.map(function (a) { return a.id; }), from);
       })).then(function (parts) {
         if (mySeq !== seq) return;
         var tx = [];
@@ -440,6 +436,35 @@
       setTimeout(function () { setStatus(false); }, 2200);
       if (window.console) console.error('[map] 단지 조회 실패', e);
     });
+  }
+
+  /**
+   * 거래를 **끝까지** 받아온다.
+   *
+   * **PostgREST는 limit을 뭘 주든 한 번에 1000행까지만 준다.** 처음엔 limit=5000으로 한 번만
+   * 불렀는데, 동탄역 일대는 단지 40곳의 12개월 매매가 6,463건이라 1000행에서 잘렸다.
+   * 잘린 뒤쪽 단지들은 "거래 0건"으로 보여 핀이 통째로 안 그려졌다 — **밀집 지역일수록
+   * 안 보이는** 구조였다(사용자 지적, 2026-09-24).
+   *
+   * id 기준 키셋으로 이어 받는다. 정렬을 id로 하는 이유는 페이지 경계에서 순서가 흔들려
+   * 중복·누락이 생기지 않게 하기 위해서다.
+   */
+  function fetchAllTx(ids, from) {
+    var out = [];
+    function page(lastId) {
+      var q = 'transactions?apartment_id=in.(' + ids.join(',') + ')'
+        + '&deal_type=eq.' + encodeURIComponent('매매')
+        + '&trade_type=eq.' + encodeURIComponent('중개')
+        + '&cancel_date=is.null&contract_date=gte.' + from
+        + '&select=id,apartment_id,area_size_m2,price,contract_date'
+        + '&order=id.asc&limit=1000' + (lastId ? '&id=gt.' + lastId : '');
+      return rest(q).then(function (rows) {
+        out = out.concat(rows);
+        if (rows.length < 1000) return out;
+        return page(rows[rows.length - 1].id);
+      });
+    }
+    return page(null);
   }
 
   function buildPins(apts, tx) {
@@ -491,15 +516,17 @@
 
   var AGENT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 9v2h2v9h5v-6h4v6h5v-9h2V9zm0 3.3L17 9v9h-1v-6H8v6H7V9z"/></svg>';
 
-  /** **배율과 상관없이 항상 띄운다**(사용자 요청, 2026-09-24).
+  /** 단지 핀과 같은 배율(level 5 이하)에서만 띄운다 — 앱과 같다(사용자 확정, 2026-09-24).
    *
-   *  처음에는 앱처럼 단지 배율에서만 띄웠는데, 그러면 한 지역을 확대해 보는 동안 나머지
-   *  협업 사무소는 화면 밖이라 "다섯 곳 중 한 곳만 보인다". 중개사 노출은 이 서비스의
-   *  수익 지면이라 숨을 자리가 아니다. 다섯 개뿐이어서 넓게 봐도 지저분하지 않다. */
+   *  중간에 "다섯 곳이 다 보여야 한다"는 말을 전 배율 표시로 잘못 읽고 항상 띄웠다가
+   *  되돌렸다. 넓게 볼 때 금색 점 다섯 개가 떠 있으면 그 화면이 말하려는 지역 통계와
+   *  상관없는 표시가 섞이는 셈이다. */
   function drawAgents() {
     agentOverlays.forEach(function (o) { o.setMap(null); });
     agentOverlays = [];
+    if (levelName() !== 'apt') return;
     loadAgents().then(function (list) {
+      if (levelName() !== 'apt') return;
       (list || []).forEach(function (ag) {
         var el = document.createElement('div');
         el.className = 'agent';
