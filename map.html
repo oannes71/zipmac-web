@@ -169,13 +169,48 @@
     statusEl.classList.toggle('on', !!on);
   }
 
+  /** 마지막으로 보던 위치를 이 브라우저에만 기억한다(사용자 요청, 2026-09-24).
+   *
+   *  **localStorage는 실패할 수 있다** — 시크릿 창, 사이트 데이터 차단, 저장 용량 초과에서
+   *  읽기도 쓰기도 예외를 던진다. 그래서 전부 try/catch로 감싸고, 값이 없거나 이상하면
+   *  서울 기본 위치로 시작한다. 지도가 안 뜨는 것보다 기본 위치로 뜨는 게 낫다.
+   *
+   *  기기 사이에는 공유되지 않는다. 그걸 하려면 로그인이 필요한데 이 앱에는 없다. */
+  var VIEW_KEY = 'zipmac.map.view.v1';
+  var DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }, DEFAULT_LEVEL = 8;
+
+  function readView() {
+    try {
+      var raw = localStorage.getItem(VIEW_KEY);
+      if (!raw) return null;
+      var v = JSON.parse(raw);
+      // 한국 밖이거나 값이 망가졌으면 버린다 — 예전 버전이 남긴 값일 수도 있다.
+      if (!v || typeof v.lat !== 'number' || typeof v.lng !== 'number' || typeof v.level !== 'number') return null;
+      if (!isFinite(v.lat) || !isFinite(v.lng)) return null;
+      if (v.lat < 32 || v.lat > 39.5 || v.lng < 124 || v.lng > 132) return null;
+      if (v.level < 1 || v.level > 14) return null;
+      return v;
+    } catch (e) { return null; }
+  }
+
+  function saveView() {
+    try {
+      var c = map.getCenter();
+      localStorage.setItem(VIEW_KEY, JSON.stringify({
+        lat: c.getLat(), lng: c.getLng(), level: map.getLevel(), at: Date.now()
+      }));
+    } catch (e) { /* 저장 못 해도 지도는 그대로 돈다 */ }
+  }
+
   kakao.maps.load(function () {
+    var v = readView();
     map = new kakao.maps.Map(document.getElementById('map'), {
-      center: new kakao.maps.LatLng(37.5665, 126.978),
-      level: 8
+      center: new kakao.maps.LatLng(v ? v.lat : DEFAULT_CENTER.lat, v ? v.lng : DEFAULT_CENTER.lng),
+      level: v ? v.level : DEFAULT_LEVEL
     });
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
     kakao.maps.event.addListener(map, 'idle', schedule);
+    kakao.maps.event.addListener(map, 'idle', saveView);
     kakao.maps.event.addListener(map, 'dragstart', closeSheet);
     schedule();
   });
