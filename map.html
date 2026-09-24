@@ -161,6 +161,16 @@
     background:#F4F6F9; border-left:3px solid #CBD5E1; border-radius:0 6px 6px 0; padding:10px 12px}
   .sheet .ap-none b{display:block; color:var(--ink); margin-bottom:3px}
   .sheet .ap-foot{font-size:11.5px; color:var(--ink-3); margin-top:9px}
+  /* 카드를 연 사람은 그 단지를 들여다보는 중이다 — 알림을 받겠다는 결정에 가장 가까운 순간이라
+     여기에 앱으로 가는 길을 둔다. 지도 오른쪽 아래 CTA는 화면을 보는 내내 떠 있어 잘 안 눌린다. */
+  .sheet .to-app{display:flex; align-items:center; gap:9px; text-decoration:none;
+    margin-top:12px; padding:10px 12px; border-radius:9px;
+    background:var(--accent-soft, #E7F0E7); border:1px solid rgba(46,125,50,.18)}
+  .sheet .to-app .ic{width:26px; height:26px; border-radius:7px; background:#2E7D32; flex:none;
+    display:flex; align-items:center; justify-content:center}
+  .sheet .to-app .ic svg{width:15px; height:15px; fill:#fff}
+  .sheet .to-app .tx{font-size:12.5px; line-height:1.45; color:#1B5E20}
+  .sheet .to-app .tx b{display:block; font-weight:700}
   .sheet .ag-row{display:flex; gap:8px; flex-wrap:wrap}
   .sheet .ag-link{display:inline-flex; align-items:center; gap:6px; text-decoration:none;
     background:#03C75A; color:#fff; font-size:13.5px; font-weight:600;
@@ -210,6 +220,7 @@
     <div id="shBars"></div>
     <div class="lgd"><span><i class="bx"></i>신고가율</span><span><i class="ln"></i>거래건수</span></div>
     <div class="note">월(月) 기준 · 중개거래 매매 중 최근 5년 내 최고가를 넘긴 거래의 비율 · 회색은 거래가 적어 비율을 적지 않은 달</div>
+    <div id="shToApp"></div>
   </div>
   <div id="shAgent" hidden></div>
 </div>
@@ -554,7 +565,8 @@
         + '양쪽에 2건 이상 있을 때만 비율을 냅니다. 한두 건으로 단지 전체의 시세를 말하지 않기 위해서입니다.</div>';
     }
     shAgent.innerHTML = body
-      + '<div class="ap-foot">최근 1년 같은 면적 매매 ' + p.deals + '건 · 중개거래 기준</div>';
+      + '<div class="ap-foot">최근 1년 같은 면적 매매 ' + p.deals + '건 · 중개거래 기준</div>'
+      + TO_APP;
     sheet.classList.add('on');
     sheet.setAttribute('aria-hidden', 'false');
   }
@@ -617,6 +629,15 @@
       });
     });
   }
+
+  /** 카드 아래에 붙는 앱 안내. 단지·지역 카드에만 넣는다 — 중개사 카드는 그 사무소를
+   *  보러 연 것이라 앱 이야기를 끼워 넣으면 방해가 된다. */
+  var TO_APP = '<a class="to-app" href="/#get">'
+    + '<span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true">'
+    + '<path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 0 0-5-5.9V4a1 1 0 1 0-2 0v1.1A6 6 0 0 0 6 11v5l-2 2v1h16v-1z"/>'
+    + '</svg></span>'
+    + '<span class="tx"><b>앱에서 더 자세히 볼 수 있어요</b>'
+    + '앱을 통해 보다 자세한 실거래가와 관심 단지 알림 서비스를 받을 수 있습니다.</span></a>';
 
   var HOUSE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11h3v9h6v-6h2v6h6v-9h3z"/></svg>';
 
@@ -786,6 +807,7 @@
   var detailSeq = 0, detailCache = {};
 
   var shChart = document.getElementById('shChart');
+  var shToApp = document.getElementById('shToApp');
   var shAgent = document.getElementById('shAgent');
 
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
@@ -829,6 +851,7 @@
     var lv = levelName();
     shChart.hidden = false;
     shAgent.hidden = true;
+    if (shToApp) shToApp.innerHTML = TO_APP;
     shName.textContent = g.label;
     shTot.textContent = '최근 12개월';
     shSum.textContent = '불러오는 중…';
