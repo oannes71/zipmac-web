@@ -141,7 +141,7 @@
 <div class="panel">
   <h1 id="lvTitle">시·군·구별 신고가율</h1>
   <div class="sub" id="lvSub">확대하면 동 단위로 바뀝니다 · 최근 6개월</div>
-  <div class="legend">
+  <div class="legend" id="legend">
     <span><i style="background:#93C5FD"></i>신고가율 낮음</span>
     <span><i style="background:#FCA5A5"></i>높음</span>
     <span><i style="width:7px;height:7px;background:#CBD5E1"></i><i style="background:#CBD5E1"></i>원 크기 = 거래량</span>
@@ -184,6 +184,7 @@
   var statusEl = document.getElementById('status');
   var titleEl = document.getElementById('lvTitle');
   var subEl = document.getElementById('lvSub');
+  var legendEl = document.getElementById('legend');
 
   function setStatus(on, text) {
     if (text) statusEl.textContent = text;
@@ -262,6 +263,8 @@
     subEl.textContent = lv === 'apt'
       ? '(%)는 최근 6개월 평균 vs 직전 6개월 평균'
       : (lv === 'dong' ? '축소하면 시·군·구 단위로 바뀝니다' : '확대하면 동 단위로 바뀝니다') + ' · 최근 ' + MONTHS + '개월';
+
+    legendEl.style.display = lv === 'apt' ? 'none' : '';
 
     if (lv === 'apt') { loadApartments(key, sw, ne); return; }
     if (cache[key]) { draw(cache[key]); return; }
