@@ -1,0 +1,304 @@
+<!--
+  zipmac.co.kr/map.html — 웹 전용 신고가 지도.
+
+  **앱의 지도 페이지와 다른 점: 이 페이지는 혼자 돈다.**
+  home-map.html / newhighs-map.html은 껍데기이고 앱이 postMessage로 데이터를 밀어 넣는다.
+  웹에는 그 앱이 없으므로 이 페이지가 Supabase RPC(region_rate_bubbles)를 직접 부른다.
+  anon 키는 앱 번들에도 들어 있는 공개 키이고, 테이블은 RLS로 막혀 있으며 이 RPC는
+  security invoker + anon grant로 열어둔 것이라 그대로 써도 된다.
+
+  **앱을 건드리지 않는다**(사용자 확인, 2026-09-24). 이 파일은 kakao-map-site/ 안에만 있고
+  배포는 git subtree push 하나로 끝난다 — 앱 빌드도 플레이 심사도 무관하다.
+
+  **카카오맵 level은 숫자가 작을수록 확대**다. Leaflet zoom과 방향이 반대라 그대로 못 옮긴다.
+
+  **단지 레이어는 아직 없다.** apartments의 좌표가 21,221/46,582(45.6%)뿐이라 지금 붙이면
+  절반이 빈 지도가 된다. 지오코딩이 더 차면 그때 넣는다.
+
+  카카오 JS SDK는 도메인 인증이다 — zipmac.co.kr은 이미 등록돼 있다(콘솔 > 앱 > 플랫폼 키).
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>집맥 신고가 지도 — 어느 지역이 움직이고 있나</title>
+<meta name="description" content="국토교통부 실거래가에서 최근 5년 내 최고가를 넘어선 거래의 비율을 시·군·구와 동 단위 지도로 봅니다. 확대하면 동 단위로 바뀝니다." />
+<style>
+  :root{
+    --ink:#111827; --ink-2:#6B7280; --line:#E7E9EE; --surface:#fff;
+    --up:#DC2626; --down:#2563EB; --flat:#9CA3AF;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0; height:100%; font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif; color:var(--ink)}
+  #map{position:absolute; inset:0}
+
+  .panel{
+    position:absolute; left:12px; top:12px; z-index:5; max-width:calc(100% - 24px);
+    background:rgba(255,255,255,.94); backdrop-filter:blur(6px);
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    box-shadow:0 2px 10px rgba(17,24,39,.10);
+  }
+  .panel h1{margin:0 0 2px; font-size:14px; font-weight:700; letter-spacing:-.01em}
+  .panel .sub{font-size:12px; color:var(--ink-2); line-height:1.5}
+  .legend{display:flex; align-items:center; gap:10px; margin-top:7px; font-size:11.5px; color:var(--ink-2); flex-wrap:wrap}
+  .legend i{width:11px; height:11px; border-radius:50%; display:inline-block; vertical-align:-1px; margin-right:4px; border:1px solid rgba(0,0,0,.08)}
+  .status{position:absolute; left:50%; top:12px; transform:translateX(-50%); z-index:6;
+    background:rgba(17,24,39,.82); color:#fff; font-size:12px; padding:5px 12px; border-radius:99px;
+    opacity:0; transition:opacity .18s ease; pointer-events:none}
+  .status.on{opacity:1}
+
+  /* 버블 — 이름 / 비율 / 표본 / 스파크라인 네 가지가 한 원에 들어간다. */
+  .bub{position:absolute; transform:translate(-50%,-50%); pointer-events:auto; cursor:default;
+    border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.28);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    line-height:1.15;}
+  .bub .nm{font-size:11px; font-weight:700; color:#111827; text-shadow:0 1px 2px rgba(255,255,255,.85)}
+  .bub .rt{font-size:15px; font-weight:800; letter-spacing:-.02em; color:#111827}
+  .bub .ct{font-size:10px; color:#374151}
+  .bub svg{margin-top:1px; display:block}
+  /* **크기가 거래량이다.** 표본이 적은 곳을 회색으로 숨기지 않는다 — 아파트가 몇 채뿐인
+     동은 1년 내내 회색이 되고, "1건 났는데 그게 신고가"라는 사실 자체가 정보이기 때문이다
+     (사용자 결정, 2026-09-24). 대신 원을 작게 그려 시각적 무게를 줄인다.
+     작은 원에는 글자가 안 들어가므로 크기에 따라 내용을 단계적으로 줄인다. */
+  .bub.s3 .ct, .bub.s3 svg{display:none}
+  .bub.s2 .ct, .bub.s2 svg, .bub.s2 .nm{display:none}
+  .bub.s2 .rt{font-size:12px}
+  .bub.s1 .ct, .bub.s1 svg, .bub.s1 .nm, .bub.s1 .rt{display:none}
+
+  .cta{
+    position:absolute; right:12px; bottom:12px; z-index:5;
+    display:inline-flex; align-items:center; gap:8px; text-decoration:none;
+    background:#2E7D32; color:#fff; font-size:13.5px; font-weight:600;
+    padding:10px 16px; border-radius:10px; box-shadow:0 4px 14px rgba(46,125,50,.28);
+  }
+  .cta small{display:block; font-weight:400; font-size:11.5px; opacity:.85}
+  @media (max-width:520px){
+    .panel{left:8px; top:8px; padding:8px 10px}
+    .panel h1{font-size:13px}
+    .cta{right:8px; bottom:8px; padding:9px 13px; font-size:13px}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1 id="lvTitle">시·군·구별 신고가율</h1>
+  <div class="sub" id="lvSub">확대하면 동 단위로 바뀝니다 · 최근 6개월</div>
+  <div class="legend">
+    <span><i style="background:#93C5FD"></i>신고가율 낮음</span>
+    <span><i style="background:#FCA5A5"></i>높음</span>
+    <span><i style="width:7px;height:7px;background:#CBD5E1"></i><i style="background:#CBD5E1"></i>원 크기 = 거래량</span>
+  </div>
+</div>
+<div class="status" id="status">불러오는 중…</div>
+
+<a class="cta" href="/#get">관심 단지 알림<small>앱에서 받을 수 있어요</small></a>
+
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=6f84f5dcb99197a873032783c2ac7b0e&autoload=false"></script>
+<script>
+(function () {
+  var SUPABASE_URL = 'https://kdaskspqnnukzukhumkz.supabase.co';
+  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtkYXNrc3Bxbm51a3p1a2h1bWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NTk5MDUsImV4cCI6MjEwNDAzNTkwNX0.DKs_KJmrClYmJpdmYW7Coto_bnvrIe_l_hqGaUSgTjM';
+
+  var MONTHS = 6;
+  /** 이 레벨보다 확대하면 동 단위. 카카오는 숫자가 작을수록 확대다. */
+  var DONG_LEVEL = 7;
+  /** 원 지름의 최소/최대(px). 넓이가 거래량에 비례하도록 지름은 sqrt로 키운다 —
+      지름에 바로 비례시키면 거래량 4배가 넓이 16배로 보여 과장된다.
+      실측(2026-09-24 강남 일대): 개포동 221건 / 내곡동 18건 / 신원동 15건.
+      예전에는 셋이 같은 크기였고 색만 달라서, 18건짜리가 화면에서 가장 붉었다. */
+  var R_MIN = 22, R_MAX = 92;
+  /** 색이 갈리는 기준 신고가율(%). 앱의 지역별 신고가 지도와 같은 값이다. */
+  var THRESHOLD = 10;
+
+  var map, overlays = [], timer = null, seq = 0, cache = {};
+  var statusEl = document.getElementById('status');
+  var titleEl = document.getElementById('lvTitle');
+  var subEl = document.getElementById('lvSub');
+
+  function setStatus(on, text) {
+    if (text) statusEl.textContent = text;
+    statusEl.classList.toggle('on', !!on);
+  }
+
+  kakao.maps.load(function () {
+    map = new kakao.maps.Map(document.getElementById('map'), {
+      center: new kakao.maps.LatLng(37.5665, 126.978),
+      level: 8
+    });
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+    kakao.maps.event.addListener(map, 'idle', schedule);
+    schedule();
+  });
+
+  /** 줌·팬마다 바로 부르면 한 번 움직일 때 열 번 날아간다. RPC가 1초 넘게 걸리므로 묶는다. */
+  function schedule() {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(load, 380);
+  }
+
+  function levelName() { return map.getLevel() <= DONG_LEVEL ? 'dong' : 'district'; }
+
+  function load() {
+    var lv = levelName();
+    var b = map.getBounds();
+    var sw = b.getSouthWest(), ne = b.getNorthEast();
+    // 캐시 키는 살짝 뭉개서 만든다 — 1px 움직일 때마다 새 요청이 되면 캐시가 무의미하다.
+    var r = function (v) { return Math.round(v * 20) / 20; };
+    var key = lv + ':' + r(sw.getLat()) + ',' + r(sw.getLng()) + ',' + r(ne.getLat()) + ',' + r(ne.getLng());
+
+    titleEl.textContent = lv === 'dong' ? '동별 신고가율' : '시·군·구별 신고가율';
+    subEl.textContent = (lv === 'dong' ? '축소하면 시·군·구 단위로 바뀝니다' : '확대하면 동 단위로 바뀝니다') + ' · 최근 ' + MONTHS + '개월';
+
+    if (cache[key]) { draw(cache[key]); return; }
+
+    var mySeq = ++seq;
+    setStatus(true, '불러오는 중…');
+    fetch(SUPABASE_URL + '/rest/v1/rpc/region_rate_bubbles', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_level: lv, p_months: MONTHS,
+        p_min_lat: sw.getLat(), p_max_lat: ne.getLat(),
+        p_min_lng: sw.getLng(), p_max_lng: ne.getLng()
+      })
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (rows) {
+        if (mySeq !== seq) return;               // 그 사이 지도가 또 움직였다 — 늦게 온 응답을 버린다
+        var grouped = group(rows);
+        cache[key] = grouped;
+        setStatus(false);
+        draw(grouped);
+      })
+      .catch(function (e) {
+        if (mySeq !== seq) return;
+        setStatus(true, '불러오지 못했어요');
+        setTimeout(function () { setStatus(false); }, 2200);
+        if (window.console) console.error('[map] region_rate_bubbles 실패', e);
+      });
+  }
+
+  /** 월별 행을 지역별로 묶는다 — 합계는 비율에, 월별 값은 스파크라인에 쓴다. */
+  function group(rows) {
+    var by = {};
+    (rows || []).forEach(function (x) {
+      var g = by[x.region_key];
+      if (!g) g = by[x.region_key] = { key: x.region_key, label: x.region_label, lat: x.lat, lng: x.lng, months: [], high: 0, total: 0 };
+      var t = Number(x.total_count) || 0, h = Number(x.new_high_count) || 0;
+      g.months.push({ ym: x.year_month, rate: t > 0 ? (100 * h / t) : null, total: t });
+      g.high += h; g.total += t;
+    });
+    return Object.keys(by).map(function (k) {
+      var g = by[k];
+      g.months.sort(function (a, b) { return a.ym < b.ym ? -1 : 1; });
+      g.rate = g.total > 0 ? (100 * g.high / g.total) : null;
+      return g;
+    });
+  }
+
+  /** 기준에서 얼마나 떨어졌는지를 **그 화면의 최대 거리**로 나눠 농도를 정한다.
+      기준값 자체로 나누면 서울은 대부분 20%를 넘어 20%와 52%가 같은 빨강이 된다
+      (앱 지도에서 2026-09-04에 겪은 것과 같은 함정). */
+  function colorScale(list) {
+    var spread = 1;
+    // 표본이 큰 곳만으로 폭을 잡는다. 1건 중 1건짜리 100%가 폭을 정하면 나머지가 전부
+    // 옅어져 색이 정보를 잃는다 — 그 원은 어차피 작게 그려지므로 척도에서 뺀다.
+    list.forEach(function (g) { if (g.total >= 20 && g.rate !== null) spread = Math.max(spread, Math.abs(g.rate - THRESHOLD)); });
+    return function (rate) {
+      var t = Math.max(-1, Math.min(1, (rate - THRESHOLD) / spread));
+      var up = [252, 165, 165], down = [147, 197, 253], mid = [243, 244, 246];
+      var to = t >= 0 ? up : down, a = Math.abs(t);
+      var c = [0, 1, 2].map(function (i) { return Math.round(mid[i] + (to[i] - mid[i]) * a); });
+      return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.82)';
+    };
+  }
+
+  /** 거래량 -> 지름. **넓이가 거래량에 비례**하도록 sqrt를 쓴다.
+      화면 안 최댓값으로 정규화한다 — 구 단위(수천 건)와 동 단위(수십 건)를 같은 고정
+      척도로 그리면 한쪽이 전부 점이 되거나 전부 최대가 된다. 색도 같은 이유로 화면 기준이다. */
+  function sizeScale(list) {
+    var max = 1;
+    list.forEach(function (g) { max = Math.max(max, g.total || 0); });
+    var rt = Math.sqrt(max);
+    return function (total) {
+      var t = Math.sqrt(Math.max(0, total || 0)) / rt;      // 0~1
+      return Math.round(R_MIN + (R_MAX - R_MIN) * t);
+    };
+  }
+
+  /** 지름에 따라 원 안에 넣을 내용을 줄인다. 작은 원에 글자를 우겨넣으면 다 못 읽는다. */
+  function tierClass(px) {
+    if (px >= 64) return '';        // 이름 + 비율 + 건수 + 스파크라인
+    if (px >= 46) return ' s3';     // 이름 + 비율
+    if (px >= 30) return ' s2';     // 비율만
+    return ' s1';                   // 원만 — 올려놓으면 상세가 뜬다
+  }
+
+  /** 월별 비율 꺾은선. 표본이 모자란 달은 점을 찍지 않고 선을 끊는다 —
+      3건 중 2건짜리 67%를 다른 달과 같은 높이로 이으면 추세가 거짓말이 된다. */
+  function spark(months, w, h) {
+    var pts = months.map(function (m, i) { return { i: i, v: (m.total >= 8 && m.rate !== null) ? m.rate : null }; });
+    var vals = pts.filter(function (p) { return p.v !== null; });
+    if (vals.length < 2) return '';
+    var max = Math.max.apply(null, vals.map(function (p) { return p.v; }));
+    var min = Math.min.apply(null, vals.map(function (p) { return p.v; }));
+    var span = Math.max(1, max - min);
+    var d = '', pen = false;
+    pts.forEach(function (p) {
+      if (p.v === null) { pen = false; return; }
+      var x = (pts.length === 1) ? w / 2 : (p.i / (pts.length - 1)) * w;
+      var y = h - ((p.v - min) / span) * h;
+      d += (pen ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+      pen = true;
+    });
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true">'
+      + '<path d="' + d.trim() + '" fill="none" stroke="#1D4ED8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  function draw(list) {
+    overlays.forEach(function (o) { o.setMap(null); });
+    overlays = [];
+    var color = colorScale(list);
+    var sizeOf = sizeScale(list);
+
+    // 큰 원이 작은 원을 덮지 않게, 작은 것을 나중에(위에) 그린다.
+    list = list.slice().sort(function (a, b) { return (b.total || 0) - (a.total || 0); });
+
+    list.forEach(function (g) {
+      if (g.lat == null || g.lng == null || g.rate === null) return;
+      var size = sizeOf(g.total);
+      var el = document.createElement('div');
+      el.className = 'bub' + tierClass(size);
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.background = color(g.rate);
+      el.style.zIndex = String(1000 - Math.min(999, g.total || 0));
+
+      el.innerHTML = '<div class="nm">' + esc(g.label) + '</div>'
+        + '<div class="rt">' + g.rate.toFixed(1) + '%</div>'
+        + '<div class="ct">' + g.high + '/' + g.total + '건</div>'
+        + spark(g.months, Math.round(size * 0.62), 14);
+      el.title = g.label + ' · 최근 ' + MONTHS + '개월 매매 ' + g.total + '건 중 신고가 ' + g.high + '건 ('
+        + g.rate.toFixed(1) + '%)';
+
+      var ov = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(g.lat, g.lng),
+        content: el, yAnchor: 0.5, xAnchor: 0.5, clickable: true
+      });
+      ov.setMap(map);
+      overlays.push(ov);
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+})();
+</script>
+</body>
+</html>

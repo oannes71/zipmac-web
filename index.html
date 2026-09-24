@@ -78,6 +78,65 @@
   nav a:hover, nav a:focus-visible{color:var(--ink); border-bottom-color:var(--green)}
   @media (max-width:560px){ nav{display:none} }
 
+  /* ── 설치 CTA ──────────────────────────────────────────────────────────
+     **이 페이지에는 설치 버튼이 아예 없었다**(2026-09-24 확인). 소개는 다 되어 있는데
+     "그래서 어디서 받나"가 없어서, 들어온 사람이 나가는 것 말고 할 일이 없었다.
+
+     **출시 전후를 한 글자로 바꾼다.** .cta-group의 data-state를 pending -> released로
+     고치면 버튼이 살아난다. 심사 통과 전에 링크를 열어두면 플레이가 404를 주므로
+     그때까지는 눌리지 않게 막아 둔다. */
+  .cta-group{display:flex; flex-direction:column; gap:10px; align-items:flex-start; margin-top:26px}
+  .cta{
+    display:inline-flex; align-items:center; gap:10px;
+    background:var(--green); color:#fff; text-decoration:none;
+    font-weight:600; font-size:16px; letter-spacing:-0.01em;
+    padding:14px 24px; border-radius:10px;
+    box-shadow:0 6px 16px rgba(46,125,50,.24);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .cta:hover, .cta:focus-visible{transform:translateY(-1px); box-shadow:0 10px 22px rgba(46,125,50,.30)}
+  .cta svg{width:20px; height:20px; flex:none}
+  .cta-note{font-size:13.5px; color:var(--ink-2)}
+  .cta-pending{
+    display:none; font-size:13px; font-weight:600; color:var(--green);
+    background:var(--green-soft); padding:4px 10px; border-radius:99px;
+  }
+  [data-state="pending"] .cta{
+    pointer-events:none; background:var(--ink-3); box-shadow:none;
+  }
+  [data-state="pending"] .cta-pending{display:inline-block}
+  /* 버튼을 막아놓고 QR만 살려두면 스캔한 사람이 404를 본다 — 같이 감춘다. */
+  body:has([data-state="pending"]) .qr-box{display:none}
+
+  /* PC에서 본 사람은 폰으로 옮겨가야 설치한다 — QR이 그 다리다. */
+  .qr-box{display:none}
+  @media (min-width:900px){
+    .qr-box{
+      display:flex; align-items:center; gap:14px; margin-top:22px;
+      background:var(--surface); border:var(--rule); border-radius:12px;
+      padding:12px 16px; width:fit-content;
+    }
+    .qr-box img{width:84px; height:84px; display:block; border-radius:6px}
+    .qr-box .t{font-size:14px; font-weight:600}
+    .qr-box .d{font-size:13px; color:var(--ink-2)}
+  }
+
+  /* 모바일 하단 고정 바 — 히어로를 지나면 나타난다. 처음부터 떠 있으면 첫인상을 가린다. */
+  .sticky-cta{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    background:var(--surface); border-top:var(--rule);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+    display:flex; align-items:center; gap:12px;
+    transform:translateY(110%); transition:transform .22s ease;
+    box-shadow:0 -4px 18px rgba(17,24,39,.08);
+  }
+  .sticky-cta.show{transform:translateY(0)}
+  .sticky-cta .s-t{flex:1; min-width:0; font-size:13.5px; line-height:1.4; color:var(--ink-2)}
+  .sticky-cta .s-t b{display:block; color:var(--ink); font-size:15px; font-weight:700}
+  .sticky-cta .cta{padding:11px 18px; font-size:15px}
+  @media (min-width:900px){ .sticky-cta{display:none} }
+  @media (prefers-reduced-motion:reduce){ .cta,.sticky-cta{transition:none} }
+
   .hero{
     background:var(--surface); border-bottom:var(--rule);
     background-image:
@@ -365,6 +424,18 @@
           <strong>직전 5년 최고가를 넘어선 거래</strong>를 가려내, 어느 지역이 지금 움직이고 있는지를
           지도 위에 먼저 보여줍니다.
         </p>
+        <div class="cta-group" data-state="pending">
+          <a class="cta" href="https://play.google.com/store/apps/details?id=kr.co.zipmac"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.1c-.3.3-.5.8-.5 1.4v17c0 .6.2 1.1.5 1.4l.1.1 9.5-9.5v-.2L3.7 2.8l-.1-.7z" opacity=".75"/><path d="M16.4 15.9l-3.2-3.2v-.2l3.2-3.2.1.1 3.8 2.1c1.1.6 1.1 1.6 0 2.2l-3.9 2.2z"/><path d="M16.5 15.8L13.2 12.5 3.6 22.1c.4.4 1 .4 1.7.1l11.2-6.4"/><path d="M16.5 9.2L5.3 2.8c-.7-.4-1.3-.3-1.7.1l9.6 9.6 3.3-3.3z" opacity=".55"/></svg> Google Play에서 받기</a>
+          <span class="cta-pending">구글 심사 중 · 승인되면 바로 열립니다</span>
+          <span class="cta-note">무료 · 회원가입 없음 · 광고 없음</span>
+        </div>
+        <div class="qr-box">
+          <img src="play-qr.png" width="84" height="84" alt="구글 플레이 집맥 설치 페이지 QR 코드" />
+          <div>
+            <div class="t">폰으로 바로 설치</div>
+            <div class="d">카메라로 QR을 비추면 설치 페이지가 열립니다.</div>
+          </div>
+        </div>
       </div>
       <div class="phone">
         <img src="screens/home.jpg" width="1080" height="2090" alt="집맥 홈 화면 — 오늘 새로 올라온 실거래와 신고가 건수, 주간 아파트 가격 변동율, 관심 지역 등락" />
@@ -373,8 +444,12 @@
   </div>
   <div class="stats">
     <div>
-      <div class="n">2,127,709</div>
+      <div class="n">4,165,179</div>
       <div class="k">수집된 실거래 건수</div>
+    </div>
+    <div>
+      <div class="n">46,582</div>
+      <div class="k">전국 아파트 단지</div>
     </div>
     <div>
       <div class="n">254</div>
@@ -624,6 +699,21 @@
   </div>
 </section>
 
+
+<section id="get" style="background:var(--surface); border-top:var(--rule); border-bottom:var(--rule)">
+  <div class="wrap" style="padding-top:clamp(48px,7vw,80px); padding-bottom:clamp(48px,7vw,80px); text-align:center">
+    <div class="kicker">설치</div>
+    <h2 style="margin-bottom:12px">오늘 올라온 실거래부터 보세요</h2>
+    <p class="sub" style="margin:0 auto 4px; max-width:46ch">
+      회원가입도, 로그인도 없습니다. 받아서 바로 지도를 열면 됩니다.
+    </p>
+    <div class="cta-group" data-state="pending" style="align-items:center; margin-top:24px">
+      <a class="cta" href="https://play.google.com/store/apps/details?id=kr.co.zipmac"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.1c-.3.3-.5.8-.5 1.4v17c0 .6.2 1.1.5 1.4l.1.1 9.5-9.5v-.2L3.7 2.8l-.1-.7z" opacity=".75"/><path d="M16.4 15.9l-3.2-3.2v-.2l3.2-3.2.1.1 3.8 2.1c1.1.6 1.1 1.6 0 2.2l-3.9 2.2z"/><path d="M16.5 15.8L13.2 12.5 3.6 22.1c.4.4 1 .4 1.7.1l11.2-6.4"/><path d="M16.5 9.2L5.3 2.8c-.7-.4-1.3-.3-1.7.1l9.6 9.6 3.3-3.3z" opacity=".55"/></svg> Google Play에서 받기</a>
+      <span class="cta-pending">구글 심사 중 · 승인되면 바로 열립니다</span>
+      <span class="cta-note">무료 · 안드로이드 · 대한민국</span>
+    </div>
+  </div>
+</section>
 <div class="biz" id="company">
   <div class="wrap" style="padding-top:clamp(44px,6vw,72px); padding-bottom:clamp(44px,6vw,72px)">
     <div class="biz-grid">
@@ -677,5 +767,29 @@
   </div>
 </footer>
 
+
+<div class="sticky-cta" id="stickyCta" aria-hidden="true">
+  <div class="s-t"><b>집맥 ZIPMAC</b>실거래가 · 신고가 지도</div>
+  <a class="cta" href="https://play.google.com/store/apps/details?id=kr.co.zipmac" tabindex="-1">받기</a>
+</div>
+
+<script>
+  /* 히어로를 지나면 하단 바를 올린다. 처음부터 떠 있으면 첫 화면을 가린다.
+     data-state가 pending인 동안에는 아예 띄우지 않는다 — 누를 수 없는 버튼을
+     따라다니게 하면 방해만 된다. */
+  (function () {
+    var bar = document.getElementById('stickyCta');
+    var anchorEl = document.querySelector('.stats') || document.querySelector('#screens');
+    if (!bar || !anchorEl) return;
+    var group = document.querySelector('.cta-group');
+    if (group && group.getAttribute('data-state') === 'pending') return;
+    if (!('IntersectionObserver' in window)) return;
+    new IntersectionObserver(function (entries) {
+      var passed = !entries[0].isIntersecting && entries[0].boundingClientRect.top < 0;
+      bar.classList.toggle('show', passed);
+      bar.setAttribute('aria-hidden', passed ? 'false' : 'true');
+    }, { threshold: 0 }).observe(anchorEl);
+  })();
+</script>
 </body>
 </html>
