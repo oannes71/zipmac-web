@@ -519,33 +519,31 @@
   var agentsPromise = null, agentOverlays = [];
   function loadAgents() {
     if (!agentsPromise) {
-      agentsPromise = rest('agents?is_active=is.true&lat=not.is.null&select=id,name,address,phone,naver_map_url,lat,lng&order=sort_order')
+      agentsPromise = rest('agents?is_active=is.true&lat=not.is.null&select=id,name,legal_name,address,phone,naver_map_url,lat,lng&order=sort_order')
         .catch(function () { agentsPromise = null; return []; });
     }
     return agentsPromise;
   }
 
   /**
-   * 마커에 적을 짧은 이름. **카드에는 정식 상호가 그대로 나온다**(사용자 확정, 2026-09-24).
+   * 카드에 적을 공식명칭 — `agents.legal_name`이 있으면 그것, 없으면 `name`.
    *
-   * 긴 이름이 지도에서 거슬린다고 해서 줄이되, 상호 자체를 바꾸지는 않는다 — 이용자가 전화를
-   * 걸어 확인할 때 간판 이름과 달라지면 곤란하다.
+   * **name은 짧은 쪽으로 둔다.** 앱의 협업 중개사 마커도 같은 `name`을 알약에 찍고, 탭하면
+   * 그 이름으로 네이버 지도를 검색한다(home-map.html의 renderPartnerAgentLayer). name을
+   * 공식명칭으로 바꾸면 **앱 마커가 길어지는데, 그건 애초에 피하려던 문제다.** 앱을 다시
+   * 빌드하지 않고 양쪽을 만족시키려면 긴 이름을 새 컬럼에 두는 쪽이 맞다.
    *
-   * 규칙은 사용자가 고른 다섯 개에서 그대로 읽어냈다: 9자 이상일 때만 "공인중개사"를 뗀다.
+   *   name       동탄역유림                     -> 지도 마커(웹·앱)
+   *   legal_name 동탄역유림공인중개사사무소     -> 카드
    *
-   *   애플힐스테이트공인중개사(12) -> 애플힐스테이트      동탄역유림공인중개사(10) -> 동탄역유림
-   *   더나은공인중개사(8) · 위례OK부동산(7) · 성투부동산중개(7) -> 그대로
+   * 규칙으로 줄이려다 두 번 어긋났다 — 공식명칭이 전부 "…공인중개사사무소"로 끝나는데
+   * 더나은만 "공인중개사"를 남긴다. 접미사로도 길이로도 일관된 규칙이 없어 손으로 적는다.
    *
-   * "공인중개사"를 무조건 떼면 더나은공인중개사가 "더나은"이 되는데, 사용자는 그건 그대로
-   * 두라고 했다. 길이가 기준이지 접미사가 기준이 아니다.
+   * legal_name이 비어 있으면 카드도 name을 쓴다 — 새 제휴처를 넣을 때 깜빡해도 비지 않는다.
    */
-  function markerName(name) {
-    var n = String(name || '공인중개사');
-    if (n.length >= 9 && /공인중개사$/.test(n)) {
-      var cut = n.replace(/\s*공인중개사$/, '');
-      if (cut.length >= 2) return cut;
-    }
-    return n;
+  function officialName(ag) {
+    var n = ag && ag.legal_name;
+    return (n && String(n).trim()) || (ag && ag.name) || '공인중개사';
   }
 
   var AGENT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 9v2h2v9h5v-6h4v6h5v-9h2V9zm0 3.3L17 9v9h-1v-6H8v6H7V9z"/></svg>';
@@ -565,7 +563,7 @@
         var el = document.createElement('div');
         el.className = 'agent';
         el.innerHTML = '<span class="ic">' + AGENT_SVG + '</span><span class="nm">' + esc(ag.name || '공인중개사') + '</span>';
-        el.title = ag.name + (ag.address ? ' · ' + ag.address : '');
+        el.title = officialName(ag) + (ag.address ? ' · ' + ag.address : '');
         el.addEventListener('click', function () { openAgent(ag); });
         var ov = new kakao.maps.CustomOverlay({
           position: new kakao.maps.LatLng(ag.lat, ag.lng), content: el,
@@ -758,7 +756,7 @@
   function openAgent(ag) {
     shChart.hidden = true;
     shAgent.hidden = false;
-    shName.textContent = ag.name || '공인중개사';
+    shName.textContent = officialName(ag);
     shTot.textContent = '';
     shSum.textContent = '';
     var buttons = '';
