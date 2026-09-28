@@ -44,7 +44,10 @@
      금색 위에서는 흰 글씨가 안 보여 글자만 짙은 갈색으로 되돌린다. */
   .zipmac-partner-pin { background: linear-gradient(135deg, #F5B301, #C68A00); }
   .zipmac-partner-pin::after { border-top-color: #C68A00; }
-  .zipmac-partner-pin .zipmac-price-label { color: #3F2A00; text-shadow: none; }
+  /* 흰 글씨로 되돌린다(사용자 지적, 2026-09-28: 짙은 갈색이 바탕에 묻힌다).
+     다른 핀과 같은 흰색이라 마커끼리도 일관된다. 다만 금색은 초록-파랑보다 밝아
+     기본 그림자로는 글자가 뜬다 — 그림자를 조금 더 진하게 준다. */
+  .zipmac-partner-pin .zipmac-price-label { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
   /* 내 위치 점. 아파트 핀(초록-파랑 그라데이션)과 섞이지 않게 단색 파랑 + 흰 테두리로 둔다. */
   .zipmac-my-location { width: 16px; height: 16px; border-radius: 50%; background: #1d4ed8;
     border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(29,78,216,0.5), 0 1px 4px rgba(0,0,0,0.4); }
